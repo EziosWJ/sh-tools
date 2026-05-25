@@ -8,6 +8,8 @@ HTTP_PROXY_URL="http://${PROXY_HOST}:${HTTP_PORT}"
 SOCKS_PROXY_URL="socks5://${PROXY_HOST}:${SOCKS_PORT}"
 
 APT_PROXY_FILE="/etc/apt/apt.conf.d/95proxies"
+DOCKER_PROXY_DIR="/etc/systemd/system/docker.service.d"
+DOCKER_PROXY_FILE="${DOCKER_PROXY_DIR}/proxy.conf"
 
 on() {
   export http_proxy="$HTTP_PROXY_URL"
@@ -62,6 +64,51 @@ apt_off() {
   echo "APT proxy disabled."
 }
 
+docker_on() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Error: Docker is not installed."
+    return 1
+  fi
+
+  sudo mkdir -p "$DOCKER_PROXY_DIR"
+  sudo tee "$DOCKER_PROXY_FILE" >/dev/null << EOF
+[Service]
+Environment="HTTP_PROXY=${HTTP_PROXY_URL}"
+Environment="HTTPS_PROXY=${HTTP_PROXY_URL}"
+Environment="NO_PROXY=localhost,127.0.0.1,::1"
+EOF
+
+  sudo systemctl daemon-reload
+  sudo systemctl restart docker
+  echo "Docker proxy enabled: $HTTP_PROXY_URL"
+}
+
+docker_off() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Error: Docker is not installed."
+    return 1
+  fi
+
+  sudo rm -f "$DOCKER_PROXY_FILE"
+  sudo systemctl daemon-reload
+  sudo systemctl restart docker
+  echo "Docker proxy disabled."
+}
+
+docker_status() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Error: Docker is not installed."
+    return 1
+  fi
+
+  echo "Docker proxy config:"
+  if [ -f "$DOCKER_PROXY_FILE" ]; then
+    cat "$DOCKER_PROXY_FILE"
+  else
+    echo "No Docker proxy config."
+  fi
+}
+
 status() {
   echo "Environment:"
   env | grep -i '_proxy' || true
@@ -85,6 +132,14 @@ status() {
   else
     echo "No apt proxy config."
   fi
+
+  echo
+  echo "Docker:"
+  if [ -f "$DOCKER_PROXY_FILE" ]; then
+    cat "$DOCKER_PROXY_FILE"
+  else
+    echo "No Docker proxy config."
+  fi
 }
 
 case "$1" in
@@ -92,6 +147,9 @@ case "$1" in
   off) off ;;
   apt-on) apt_on ;;
   apt-off) apt_off ;;
+  docker-on) docker_on ;;
+  docker-off) docker_off ;;
+  docker-status) docker_status ;;
   status) status ;;
   *)
     echo "Usage:"
@@ -99,6 +157,9 @@ case "$1" in
     echo "  proxyctl off"
     echo "  proxyctl apt-on"
     echo "  proxyctl apt-off"
+    echo "  proxyctl docker-on"
+    echo "  proxyctl docker-off"
+    echo "  proxyctl docker-status"
     echo "  proxyctl status"
     echo
     echo "Optional:"
