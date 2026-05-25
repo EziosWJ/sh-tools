@@ -1,6 +1,6 @@
 # proxyctl - 代理管理工具
 
-一键管理 Shell、Git、NPM、APT 和 Docker 的代理配置。
+一键管理 Shell、Git、NPM、APT、Docker 和 pip 的代理配置。
 
 ## 功能
 
@@ -9,6 +9,7 @@
 - ✅ 配置 NPM 代理
 - ✅ 配置 APT 代理（Debian/Ubuntu）
 - ✅ 配置 Docker 代理（systemd）
+- ✅ 配置 pip 代理
 - ✅ 查看当前代理状态
 
 ## 快速安装
@@ -88,6 +89,26 @@ proxyctl docker-status
 
 > **注意：** Docker 代理配置会重启 Docker 服务，请确保没有正在运行的关键容器。
 
+### 启用 pip 代理
+
+pip 需要显式配置代理，不能依赖系统环境变量。
+
+```bash
+# 启用 pip 代理（使用默认代理）
+proxyctl pip-on
+
+# 使用自定义代理地址
+PROXY_HOST=192.168.1.10 HTTP_PORT=7897 proxyctl pip-on
+
+# 关闭 pip 代理
+proxyctl pip-off
+
+# 查看 pip 代理状态
+proxyctl pip-status
+```
+
+> **注意：** pip 代理配置会修改 `~/.config/pip/pip.conf` 文件。
+
 ### 查看代理状态
 
 ```bash
@@ -106,13 +127,16 @@ proxyctl status
 
 | 命令 | 说明 |
 |------|------|
-| `proxyctl on` | 启用代理（Shell + Git + NPM） |
-| `proxyctl off` | 关闭代理（Shell + Git + NPM） |
+| `proxyctl on` | 启用代理（Shell + Git + NPM + pip） |
+| `proxyctl off` | 关闭代理（Shell + Git + NPM + pip） |
 | `proxyctl apt-on` | 启用 APT 代理 |
 | `proxyctl apt-off` | 关闭 APT 代理 |
 | `proxyctl docker-on` | 启用 Docker 代理 |
 | `proxyctl docker-off` | 关闭 Docker 代理 |
 | `proxyctl docker-status` | 查看 Docker 代理状态 |
+| `proxyctl pip-on` | 启用 pip 代理 |
+| `proxyctl pip-off` | 关闭 pip 代理 |
+| `proxyctl pip-status` | 查看 pip 代理状态 |
 | `proxyctl status` | 查看所有代理状态 |
 
 ## 示例
@@ -124,12 +148,16 @@ PROXY_HOST=192.168.1.10 HTTP_PORT=7897 proxyctl on
 # 启用 Docker 代理
 PROXY_HOST=192.168.1.10 HTTP_PORT=7897 proxyctl docker-on
 
+# 启用 pip 代理
+PROXY_HOST=192.168.1.10 HTTP_PORT=7897 proxyctl pip-on
+
 # 查看所有代理状态
 proxyctl status
 
 # 关闭所有代理
 proxyctl off
 proxyctl docker-off
+proxyctl pip-off
 ```
 
 ## 配置到 ~/.bashrc
@@ -226,4 +254,5 @@ ps    # 查看状态
 - Git 和 NPM 的配置是全局的，会在 `off` 时自动清除
 - APT 代理需要 sudo 权限
 - Docker 代理需要 sudo 权限，配置时会重启 Docker 服务
+- pip 代理配置会修改 `~/.config/pip/pip.conf` 文件
 - 使用 `source` 执行脚本才能使环境变量生效到当前 shell

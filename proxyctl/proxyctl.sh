@@ -10,6 +10,8 @@ SOCKS_PROXY_URL="socks5://${PROXY_HOST}:${SOCKS_PORT}"
 APT_PROXY_FILE="/etc/apt/apt.conf.d/95proxies"
 DOCKER_PROXY_DIR="/etc/systemd/system/docker.service.d"
 DOCKER_PROXY_FILE="${DOCKER_PROXY_DIR}/proxy.conf"
+PIP_CONFIG_FILE="${HOME}/.config/pip/pip.conf"
+PIP_CONFIG_DIR="${HOME}/.config/pip"
 
 on() {
   export http_proxy="$HTTP_PROXY_URL"
@@ -31,6 +33,8 @@ on() {
     npm config set https-proxy "$HTTP_PROXY_URL" >/dev/null
   fi
 
+  pip_on
+
   echo "Proxy enabled for current shell:"
   echo "  http_proxy=$http_proxy"
   echo "  https_proxy=$https_proxy"
@@ -49,6 +53,8 @@ off() {
     npm config delete proxy >/dev/null 2>&1 || true
     npm config delete https-proxy >/dev/null 2>&1 || true
   fi
+
+  pip_off
 
   echo "Proxy disabled for current shell, git and npm."
 }
@@ -109,6 +115,45 @@ docker_status() {
   fi
 }
 
+pip_on() {
+  if ! command -v pip >/dev/null 2>&1; then
+    echo "Warning: pip is not installed."
+    return 1
+  fi
+
+  mkdir -p "$PIP_CONFIG_DIR"
+  tee "$PIP_CONFIG_FILE" >/dev/null << EOF
+[global]
+proxy = ${HTTP_PROXY_URL}
+EOF
+
+  echo "pip proxy enabled: $HTTP_PROXY_URL"
+}
+
+pip_off() {
+  if ! command -v pip >/dev/null 2>&1; then
+    echo "Warning: pip is not installed."
+    return 1
+  fi
+
+  rm -f "$PIP_CONFIG_FILE"
+  echo "pip proxy disabled."
+}
+
+pip_status() {
+  if ! command -v pip >/dev/null 2>&1; then
+    echo "Error: pip is not installed."
+    return 1
+  fi
+
+  echo "pip proxy config:"
+  if [ -f "$PIP_CONFIG_FILE" ]; then
+    cat "$PIP_CONFIG_FILE"
+  else
+    echo "No pip proxy config."
+  fi
+}
+
 status() {
   echo "Environment:"
   env | grep -i '_proxy' || true
@@ -140,6 +185,14 @@ status() {
   else
     echo "No Docker proxy config."
   fi
+
+  echo
+  echo "pip:"
+  if [ -f "$PIP_CONFIG_FILE" ]; then
+    cat "$PIP_CONFIG_FILE"
+  else
+    echo "No pip proxy config."
+  fi
 }
 
 case "$1" in
@@ -150,6 +203,9 @@ case "$1" in
   docker-on) docker_on ;;
   docker-off) docker_off ;;
   docker-status) docker_status ;;
+  pip-on) pip_on ;;
+  pip-off) pip_off ;;
+  pip-status) pip_status ;;
   status) status ;;
   *)
     echo "Usage:"
@@ -160,6 +216,9 @@ case "$1" in
     echo "  proxyctl docker-on"
     echo "  proxyctl docker-off"
     echo "  proxyctl docker-status"
+    echo "  proxyctl pip-on"
+    echo "  proxyctl pip-off"
+    echo "  proxyctl pip-status"
     echo "  proxyctl status"
     echo
     echo "Optional:"
