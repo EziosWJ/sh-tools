@@ -53,6 +53,7 @@ off() {
   unset HTTP_PROXY HTTPS_PROXY ALL_PROXY
   unset no_proxy NO_PROXY
 
+  # 只删除 proxy 配置，保留其他 git 配置
   git config --global --unset http.proxy 2>/dev/null || true
   git config --global --unset https.proxy 2>/dev/null || true
 
@@ -79,9 +80,21 @@ apt_on() {
 }
 
 apt_off() {
-  if ! sudo rm -f "$APT_PROXY_FILE"; then
-    log_error "Failed to remove APT proxy. Please check sudo permissions."
+  if ! command -v sudo >/dev/null 2>&1; then
+    log_error "sudo is not installed."
     return 1
+  fi
+
+  if [ -f "$APT_PROXY_FILE" ]; then
+    # 只删除 proxy 配置，保留其他 APT 配置
+    if grep -q "Acquire::http::Proxy\|Acquire::https::Proxy" "$APT_PROXY_FILE"; then
+      sed -i '/Acquire::http::Proxy/d' "$APT_PROXY_FILE"
+      sed -i '/Acquire::https::Proxy/d' "$APT_PROXY_FILE"
+      # 如果文件为空，删除文件
+      if [ ! -s "$APT_PROXY_FILE" ]; then
+        sudo rm -f "$APT_PROXY_FILE"
+      fi
+    fi
   fi
   echo "APT proxy disabled."
 }
@@ -118,7 +131,17 @@ docker_off() {
     return 1
   fi
 
-  sudo rm -f "$DOCKER_PROXY_FILE"
+  if [ -f "$DOCKER_PROXY_FILE" ]; then
+    # 只删除 proxy 配置，保留其他 systemd 配置
+    if grep -q "Environment.*_PROXY" "$DOCKER_PROXY_FILE"; then
+      sed -i '/Environment.*_PROXY/d' "$DOCKER_PROXY_FILE"
+      # 如果文件为空，删除文件
+      if [ ! -s "$DOCKER_PROXY_FILE" ]; then
+        sudo rm -f "$DOCKER_PROXY_FILE"
+      fi
+    fi
+  fi
+
   if ! sudo systemctl daemon-reload; then
     log_error "Failed to reload systemd daemon."
     return 1
