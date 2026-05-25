@@ -165,7 +165,16 @@ pip_off() {
     return 1
   fi
 
-  rm -f "$PIP_CONFIG_FILE"
+  if [ -f "$PIP_CONFIG_FILE" ]; then
+    # 只删除 proxy 配置，保留其他配置
+    if grep -q "^proxy" "$PIP_CONFIG_FILE"; then
+      sed -i '/^proxy/d' "$PIP_CONFIG_FILE"
+      # 如果文件为空，删除文件
+      if [ ! -s "$PIP_CONFIG_FILE" ]; then
+        rm -f "$PIP_CONFIG_FILE"
+      fi
+    fi
+  fi
   echo "pip proxy disabled."
 }
 
