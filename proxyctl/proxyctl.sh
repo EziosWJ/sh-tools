@@ -13,6 +13,10 @@ DOCKER_PROXY_FILE="${DOCKER_PROXY_DIR}/proxy.conf"
 PIP_CONFIG_FILE="${HOME}/.config/pip/pip.conf"
 PIP_CONFIG_DIR="${HOME}/.config/pip"
 
+# Logging functions
+log_info() { echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') $1"; }
+log_error() { echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') $1" >&2; }
+
 on() {
   export http_proxy="$HTTP_PROXY_URL"
   export https_proxy="$HTTP_PROXY_URL"
@@ -33,12 +37,15 @@ on() {
     npm config set https-proxy "$HTTP_PROXY_URL" >/dev/null
   fi
 
-  pip_on
+  pip_on || true
 
   echo "Proxy enabled for current shell:"
   echo "  http_proxy=$http_proxy"
   echo "  https_proxy=$https_proxy"
   echo "  all_proxy=$all_proxy"
+  if command -v pip >/dev/null 2>&1; then
+    echo "  pip proxy=$HTTP_PROXY_URL"
+  fi
 }
 
 off() {
@@ -54,25 +61,34 @@ off() {
     npm config delete https-proxy >/dev/null 2>&1 || true
   fi
 
-  pip_off
+  pip_off || true
 
-  echo "Proxy disabled for current shell, git and npm."
+  echo "Proxy disabled for current shell, git, npm and pip."
 }
 
 apt_on() {
-  echo "Acquire::http::Proxy \"${HTTP_PROXY_URL}\";" | sudo tee "$APT_PROXY_FILE" >/dev/null
-  echo "Acquire::https::Proxy \"${HTTP_PROXY_URL}\";" | sudo tee -a "$APT_PROXY_FILE" >/dev/null
+  if ! echo "Acquire::http::Proxy \"${HTTP_PROXY_URL}\";" | sudo tee "$APT_PROXY_FILE" >/dev/null; then
+    log_error "Failed to set APT proxy. Please check sudo permissions."
+    return 1
+  fi
+  if ! echo "Acquire::https::Proxy \"${HTTP_PROXY_URL}\";" | sudo tee -a "$APT_PROXY_FILE" >/dev/null; then
+    log_error "Failed to set APT proxy. Please check sudo permissions."
+    return 1
+  fi
   echo "APT proxy enabled: $HTTP_PROXY_URL"
 }
 
 apt_off() {
-  sudo rm -f "$APT_PROXY_FILE"
+  if ! sudo rm -f "$APT_PROXY_FILE"; then
+    log_error "Failed to remove APT proxy. Please check sudo permissions."
+    return 1
+  fi
   echo "APT proxy disabled."
 }
 
 docker_on() {
   if ! command -v docker >/dev/null 2>&1; then
-    echo "Error: Docker is not installed."
+    log_error "Docker is not installed."
     return 1
   fi
 
@@ -81,29 +97,42 @@ docker_on() {
 [Service]
 Environment="HTTP_PROXY=${HTTP_PROXY_URL}"
 Environment="HTTPS_PROXY=${HTTP_PROXY_URL}"
+Environment="ALL_PROXY=${SOCKS_PROXY_URL}"
 Environment="NO_PROXY=localhost,127.0.0.1,::1"
 EOF
 
-  sudo systemctl daemon-reload
-  sudo systemctl restart docker
+  if ! sudo systemctl daemon-reload; then
+    log_error "Failed to reload systemd daemon."
+    return 1
+  fi
+  if ! sudo systemctl restart docker; then
+    log_error "Docker restart failed. Please restart manually."
+    return 1
+  fi
   echo "Docker proxy enabled: $HTTP_PROXY_URL"
 }
 
 docker_off() {
   if ! command -v docker >/dev/null 2>&1; then
-    echo "Error: Docker is not installed."
+    log_error "Docker is not installed."
     return 1
   fi
 
   sudo rm -f "$DOCKER_PROXY_FILE"
-  sudo systemctl daemon-reload
-  sudo systemctl restart docker
+  if ! sudo systemctl daemon-reload; then
+    log_error "Failed to reload systemd daemon."
+    return 1
+  fi
+  if ! sudo systemctl restart docker; then
+    log_error "Docker restart failed. Please restart manually."
+    return 1
+  fi
   echo "Docker proxy disabled."
 }
 
 docker_status() {
   if ! command -v docker >/dev/null 2>&1; then
-    echo "Error: Docker is not installed."
+    log_error "Docker is not installed."
     return 1
   fi
 
@@ -117,7 +146,7 @@ docker_status() {
 
 pip_on() {
   if ! command -v pip >/dev/null 2>&1; then
-    echo "Warning: pip is not installed."
+    log_error "pip is not installed."
     return 1
   fi
 
@@ -132,7 +161,7 @@ EOF
 
 pip_off() {
   if ! command -v pip >/dev/null 2>&1; then
-    echo "Warning: pip is not installed."
+    log_error "pip is not installed."
     return 1
   fi
 
@@ -142,7 +171,7 @@ pip_off() {
 
 pip_status() {
   if ! command -v pip >/dev/null 2>&1; then
-    echo "Error: pip is not installed."
+    log_error "pip is not installed."
     return 1
   fi
 
@@ -166,8 +195,14 @@ status() {
   echo
   echo "NPM:"
   if command -v npm >/dev/null 2>&1; then
-    npm config get proxy
-    npm config get https-proxy
+    local npm_proxy=$(npm config get proxy)
+    local npm_https_proxy=$(npm config get https-proxy)
+    if [ -n "$npm_proxy" ] || [ -n "$npm_https_proxy" ]; then
+      echo "  proxy=$npm_proxy"
+      echo "  https-proxy=$npm_https_proxy"
+    else
+      echo "No npm proxy config."
+    fi
   fi
 
   echo
