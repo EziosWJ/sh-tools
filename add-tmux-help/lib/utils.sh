@@ -133,13 +133,22 @@ select_option() {
     printf '%s\n' "${options[@]}" | fzf --prompt="$prompt" --height=40% --reverse
   else
     # 回退到select菜单
-    echo "$prompt"
-    select opt in "${options[@]}"; do
-      if [[ -n "$opt" ]]; then
-        echo "$opt"
-        break
-      fi
+    echo "$prompt" >&2
+    local i=1
+    for opt in "${options[@]}"; do
+      echo "  $i) $opt" >&2
+      ((i++))
     done
+    
+    local choice
+    printf "请选择编号: " >&2
+    read -r choice
+    
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le "${#options[@]}" ]]; then
+      echo "${options[$choice]}"
+    else
+      echo ""
+    fi
   fi
 }
 
