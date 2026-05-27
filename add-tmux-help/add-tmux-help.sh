@@ -161,6 +161,8 @@ install_main() {
     for module_info in "${modules[@]}"; do
       local func_name="${module_info%%:*}"
       local link_name="$bin_dir/$func_name"
+      # 将连字符转换为下划线作为函数名
+      local main_func="${func_name//[-]/_}_main"
       
       if [[ ! -L "$link_name" ]]; then
         # 创建包装脚本
@@ -168,7 +170,7 @@ install_main() {
 #!/usr/bin/env bash
 source "$SCRIPT_DIR/lib/utils.sh"
 source "${module_info##*:}"
-${func_name}_main "\$@"
+$main_func "\$@"
 WRAPPER
         chmod +x "$link_name"
         info "创建符号链接: $link_name"

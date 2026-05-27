@@ -23,6 +23,10 @@ load_templates() {
   
   debug "加载模板文件: $template_file"
   
+  # 清除硬编码的模板
+  unset SESSION_TEMPLATES
+  declare -gA SESSION_TEMPLATES
+  
   while IFS='|' read -r name directory command; do
     # 跳过空行和注释
     [[ -z "$name" || "$name" =~ ^[[:space:]]*# ]] && continue
@@ -31,6 +35,14 @@ load_templates() {
     name=$(echo "$name" | xargs)
     directory=$(echo "$directory" | xargs)
     command=$(echo "$command" | xargs)
+    
+    # 去除引号
+    name="${name%\"}"
+    name="${name#\"}"
+    directory="${directory%\"}"
+    directory="${directory#\"}"
+    command="${command%\"}"
+    command="${command#\"}"
     
     if [[ -n "$name" && -n "$command" ]]; then
       SESSION_TEMPLATES["$name"]="$command"
@@ -286,6 +298,8 @@ template_list() {
   local keys
   if [[ -n "${ZSH_VERSION:-}" ]]; then
     keys=(${(k)SESSION_TEMPLATES})
+    # 去除引号
+    keys=("${(@)keys//\"/}")
   else
     keys=("${!SESSION_TEMPLATES[@]}")
   fi
