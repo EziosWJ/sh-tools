@@ -126,7 +126,11 @@ session_switch() {
   fi
   
   local session_list
-  mapfile -t session_list <<< "$sessions"
+  if [[ -n "${ZSH_VERSION:-}" ]]; then
+    session_list=("${(@f)sessions}")
+  else
+    mapfile -t session_list <<< "$sessions"
+  fi
   
   local selected
   selected=$(select_option "选择会话: " "${session_list[@]}")
