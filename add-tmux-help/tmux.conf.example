@@ -1,0 +1,60 @@
+# tmux-helper 配置示例
+# 将此文件复制到 ~/.config/tmux-helper/config 并根据需要修改
+
+# 自动扫描的项目目录（逗号分隔）
+# 这些目录会被用于自动发现项目和模板
+TMUX_HELPER_SCAN_DIRS="~/projects,~/work,~/code"
+
+# 会话保存目录
+# 保存的会话布局文件存放位置
+TMUX_HELPER_SESSION_DIR="~/.config/tmux-helper/sessions"
+
+# 模板文件
+# 自定义会话模板的配置文件
+TMUX_HELPER_TEMPLATE_FILE="~/.config/tmux-helper/templates.conf"
+
+# 默认编辑器
+# 用于编辑配置文件和模板
+TMUX_HELPER_DEFAULT_EDITOR="vim"
+
+# 交互界面工具
+# 可选值: fzf (需要安装fzf) 或 select (内置菜单)
+TMUX_HELPER_SELECTOR="fzf"
+
+# 调试模式
+# 设置为1启用调试输出
+TMUX_HELPER_DEBUG=0
+
+# 模板配置文件格式说明:
+# 每行一个模板，格式为: 模板名称|工作目录|启动命令
+# 示例:
+# web-project|~/projects/webapp|npm run dev
+# python-api|~/projects/api|python manage.py runserver
+# node-server|~/projects/node-app|node server.js
+# go-service|~/projects/go-app|go run main.go
+# rust-project|~/projects/rust-app|cargo run
+
+# 自动扫描目录结构:
+# 系统会自动扫描 TMUX_HELPER_SCAN_DIRS 中的目录
+# 查找包含以下文件的项目目录:
+# - package.json (Node.js项目)
+# - requirements.txt 或 setup.py (Python项目)
+# - go.mod (Go项目)
+# - Cargo.toml (Rust项目)
+# - .git (Git仓库)
+
+# 快捷键自定义:
+# 可以在 ~/.tmux.conf 中添加自定义快捷键
+# 示例:
+# bind-key -n M-h select-pane -L  # Alt+h 切换左面板
+# bind-key -n M-j select-pane -D  # Alt+j 切换下面板
+# bind-key -n M-k select-pane -U  # Alt+k 切换上面板
+# bind-key -n M-l select-pane -R  # Alt+l 切换右面板
+
+# 主题配置:
+# 可以自定义tmux状态栏样式
+# 示例:
+# set -g status-bg colour235
+# set -g status-fg colour136
+# set -g status-left '#[fg=green]#S '
+# set -g status-right '#[fg=yellow]#(date "+%H:%M")'
