@@ -34,8 +34,10 @@ bash init-linux.sh node     # 仅安装 Node.js LTS
 ### 一键远程执行
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/init-Linux/init-linux.sh | bash
+bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/init-Linux/init-linux.sh)
 ```
+
+> ⚠️ 不要使用 `curl ... | bash` 方式，管道会占用 stdin 导致交互式菜单无法输入。
 
 ## 支持范围
 
