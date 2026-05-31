@@ -94,7 +94,7 @@ fi
 
 # $func_name 主函数
 $func_name() {
-  ${func_name}_main "\$@"
+  ${func_name//[-]/_}_main "\$@"
 }
 $MARKER_END
 EOF
@@ -185,13 +185,13 @@ WRAPPER
   echo "  source ~/.zshrc    # zsh"
   echo ""
   echo "可用命令:"
-  echo "  tmux-help [分类]           # 显示帮助"
-  echo "  tmux-help -i               # 交互模式"
-  echo "  tmux-help -s 关键词        # 搜索快捷键"
-  echo "  tmux-session create <名称> # 创建会话"
-  echo "  tmux-session list          # 列出会话"
-  echo "  tmux-session switch        # 切换会话"
-  echo "  tmux-session status        # 显示状态"
+  echo "  tmux-help              # 显示所有快捷键帮助"
+  echo "  tmux-help session      # 查看会话管理帮助"
+  echo "  tmux-help -i           # 交互模式"
+  echo "  tmux-session           # 交互式选择/创建会话"
+  echo "  tmux-session <名称>    # 切换到会话(不存在则创建)"
+  echo "  tmux-session ls        # 列出会话"
+  echo "  tmux-session kill      # 终止会话"
 }
 
 # 卸载函数
