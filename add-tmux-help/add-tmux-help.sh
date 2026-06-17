@@ -1,15 +1,121 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-MARKER_START="# >>> tmux-help >>>"
-MARKER_END="# <<< tmux-help <<<"
+marker_start() {
+  local func_name="$1"
+  printf '# >>> %s >>>\n' "$func_name"
+}
+
+marker_end() {
+  local func_name="$1"
+  printf '# <<< %s <<<\n' "$func_name"
+}
+REPO_RAW_BASE="${REPO_RAW_BASE:-https://raw.githubusercontent.com/EziosWJ/sh-tools/master}"
+RUNTIME_DIR="${ADD_TMUX_HELP_RUNTIME_DIR:-$HOME/.local/share/sh-tools/add-tmux-help}"
 
 # 获取脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ASSET_DIR="$SCRIPT_DIR"
+
+bootstrap_info() {
+  printf '[INFO] %s\n' "$*"
+}
+
+bootstrap_warn() {
+  printf '[WARN] %s\n' "$*" >&2
+}
+
+bootstrap_error() {
+  printf '[ERROR] %s\n' "$*" >&2
+}
+
+bootstrap_runtime_assets() {
+  local target_dir="$1"
+  local files=(
+    "lib/utils.sh"
+    "lib/tmux-help.sh"
+    "lib/tmux-session.sh"
+    "tmux.conf.example"
+  )
+  local file
+
+  if ! command -v curl >/dev/null 2>&1; then
+    bootstrap_error "远程执行 add-tmux-help 需要 curl 下载运行时文件。"
+    return 1
+  fi
+
+  mkdir -p "$target_dir/lib"
+  for file in "${files[@]}"; do
+    bootstrap_info "下载运行时文件: $file"
+    curl -fsSL "$REPO_RAW_BASE/add-tmux-help/$file" -o "$target_dir/$file" || {
+      bootstrap_error "下载失败: $REPO_RAW_BASE/add-tmux-help/$file"
+      return 1
+    }
+  done
+}
+
+if [[ ! -f "$ASSET_DIR/lib/utils.sh" ]]; then
+  ASSET_DIR="$RUNTIME_DIR"
+  bootstrap_runtime_assets "$ASSET_DIR"
+fi
 
 # 加载工具函数
-source "$SCRIPT_DIR/lib/utils.sh"
-source "$SCRIPT_DIR/../lib/shell-integration.sh"
+source "$ASSET_DIR/lib/utils.sh"
+if [[ -f "$SCRIPT_DIR/../lib/shell-integration.sh" ]]; then
+  source "$SCRIPT_DIR/../lib/shell-integration.sh"
+fi
+
+if ! declare -F shell_rc_files >/dev/null 2>&1; then
+  shell_rc_files() {
+    local rc_file
+    local rc_files=(
+      "$HOME/.bashrc"
+      "$HOME/.zshrc"
+    )
+
+    for rc_file in "${rc_files[@]}"; do
+      if [[ -f "$rc_file" ]]; then
+        printf '%s\n' "$rc_file"
+      fi
+    done
+  }
+fi
+
+if ! declare -F shell_replace_marked_block >/dev/null 2>&1; then
+  shell_replace_marked_block() {
+    local file="$1"
+    local marker_start="$2"
+    local marker_end="$3"
+    local block="$4"
+
+    if [[ ! -f "$file" ]]; then
+      warn "$file 不存在，已跳过写入。"
+      return 1
+    fi
+
+    if grep -qF "$marker_start" "$file"; then
+      sed -i "/$marker_start/,/$marker_end/d" "$file"
+    fi
+
+    printf '\n%s\n' "$block" >> "$file"
+  }
+fi
+
+if ! declare -F shell_remove_marked_block >/dev/null 2>&1; then
+  shell_remove_marked_block() {
+    local file="$1"
+    local marker_start="$2"
+    local marker_end="$3"
+
+    if [[ ! -f "$file" ]]; then
+      return 1
+    fi
+
+    if grep -qF "$marker_start" "$file"; then
+      sed -i "/$marker_start/,/$marker_end/d" "$file"
+    fi
+  }
+fi
 
 # 检查依赖
 check_dependencies() {
@@ -68,7 +174,7 @@ EOF
   # 创建默认配置文件（如果不存在）
   local config_file="$config_dir/config"
   if [[ ! -f "$config_file" ]]; then
-    cp "$SCRIPT_DIR/tmux.conf.example" "$config_file"
+    cp "$ASSET_DIR/tmux.conf.example" "$config_file"
     info "创建默认配置文件: $config_file"
   fi
 }
@@ -77,15 +183,20 @@ EOF
 generate_function_def() {
   local func_name="$1"
   local func_file="$2"
+  local block_marker_start
+  local block_marker_end
+
+  block_marker_start="$(marker_start "$func_name")"
+  block_marker_end="$(marker_end "$func_name")"
   
   cat <<EOF
-$MARKER_START
+$block_marker_start
 # tmux-helper 函数定义
 # 自动安装于 $(date -Iseconds)
 
 # 加载工具函数
-if [[ -f "$SCRIPT_DIR/lib/utils.sh" ]]; then
-  source "$SCRIPT_DIR/lib/utils.sh"
+if [[ -f "$ASSET_DIR/lib/utils.sh" ]]; then
+  source "$ASSET_DIR/lib/utils.sh"
 fi
 
 # 加载 $func_name 模块
@@ -97,7 +208,7 @@ fi
 $func_name() {
   ${func_name//[-]/_}_main "\$@"
 }
-$MARKER_END
+$block_marker_end
 EOF
 }
 
@@ -106,19 +217,23 @@ add_to_rc() {
   local rc_file="$1"
   local func_name="$2"
   local func_file="$3"
+  local block_marker_start
+  local block_marker_end
+  block_marker_start="$(marker_start "$func_name")"
+  block_marker_end="$(marker_end "$func_name")"
   
   if [[ ! -f "$rc_file" ]]; then
     warn "$rc_file 不存在，跳过"
     return
   fi
   
-  if grep -qF "$MARKER_START" "$rc_file"; then
+  if grep -qF "$block_marker_start" "$rc_file"; then
     info "$rc_file 中已移除旧版 $func_name"
   fi
   
   local function_def
   function_def="$(generate_function_def "$func_name" "$func_file")"
-  shell_replace_marked_block "$rc_file" "$MARKER_START" "$MARKER_END" "$function_def"
+  shell_replace_marked_block "$rc_file" "$block_marker_start" "$block_marker_end" "$function_def"
   success "已添加 $func_name 到 $rc_file"
 }
 
@@ -136,8 +251,8 @@ install_main() {
   
   # 安装各个模块
   local modules=(
-    "tmux-help:$SCRIPT_DIR/lib/tmux-help.sh"
-    "tmux-session:$SCRIPT_DIR/lib/tmux-session.sh"
+    "tmux-help:$ASSET_DIR/lib/tmux-help.sh"
+    "tmux-session:$ASSET_DIR/lib/tmux-session.sh"
   )
   
   for module_info in "${modules[@]}"; do
@@ -167,7 +282,7 @@ install_main() {
         # 创建包装脚本
         cat > "$link_name" <<WRAPPER
 #!/usr/bin/env bash
-source "$SCRIPT_DIR/lib/utils.sh"
+source "$ASSET_DIR/lib/utils.sh"
 source "${module_info##*:}"
 $main_func "\$@"
 WRAPPER
@@ -198,12 +313,16 @@ uninstall_main() {
   info "开始卸载 tmux-helper..."
   
   local rc_file
+  local func_name
+  local markers=("tmux-help" "tmux-session")
 
   while IFS= read -r rc_file; do
-    if grep -qF "$MARKER_START" "$rc_file"; then
-      shell_remove_marked_block "$rc_file" "$MARKER_START" "$MARKER_END"
-      success "从 $rc_file 移除 tmux-helper"
-    fi
+    for func_name in "${markers[@]}"; do
+      if grep -qF "$(marker_start "$func_name")" "$rc_file"; then
+        shell_remove_marked_block "$rc_file" "$(marker_start "$func_name")" "$(marker_end "$func_name")"
+        success "从 $rc_file 移除 $func_name"
+      fi
+    done
   done < <(shell_rc_files)
   
   # 删除符号链接
