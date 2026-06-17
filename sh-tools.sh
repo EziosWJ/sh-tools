@@ -6,6 +6,8 @@ REPO_RAW_BASE="${REPO_RAW_BASE:-https://raw.githubusercontent.com/EziosWJ/sh-too
 
 if [[ -f "$SCRIPT_DIR/lib/tool-registry.sh" ]]; then
   source "$SCRIPT_DIR/lib/tool-registry.sh"
+elif source <(curl -fsSL "$REPO_RAW_BASE/lib/tool-registry.sh") 2>/dev/null; then
+  :
 fi
 
 if ! declare -F tool_registry_names >/dev/null 2>&1; then
