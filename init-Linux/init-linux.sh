@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/../lib/shell-integration.sh" ]]; then
+  source "$SCRIPT_DIR/../lib/shell-integration.sh"
+fi
+
 NVM_VERSION="v0.40.4"
 APT_AVAILABLE=0
 
@@ -19,6 +24,73 @@ warn() {
 error() {
   printf '\033[1;31m[ERROR]\033[0m %s\n' "$*" >&2
 }
+
+if ! declare -F shell_rc_files >/dev/null 2>&1; then
+  shell_rc_files() {
+    local rc_file
+    local rc_files=(
+      "$HOME/.bashrc"
+      "$HOME/.zshrc"
+    )
+
+    for rc_file in "${rc_files[@]}"; do
+      if [[ -f "$rc_file" ]]; then
+        printf '%s\n' "$rc_file"
+      else
+        warn "$rc_file 不存在，已跳过。"
+      fi
+    done
+  }
+fi
+
+if ! declare -F shell_append_line_if_missing >/dev/null 2>&1; then
+  shell_append_line_if_missing() {
+    local file="$1"
+    local line="$2"
+
+    if [[ ! -f "$file" ]]; then
+      warn "$file 不存在，已跳过写入。"
+      return 1
+    fi
+
+    if grep -Fxq "$line" "$file"; then
+      return 0
+    fi
+
+    if ! printf '\n%s\n' "$line" >> "$file"; then
+      error "写入 $file 失败。"
+      return 1
+    fi
+  }
+fi
+
+if ! declare -F shell_source_current_rc >/dev/null 2>&1; then
+  shell_source_current_rc() {
+    local shell_name="${1:-$(basename "${SHELL:-}")}"
+    local rc_file
+
+    case "$shell_name" in
+      bash) rc_file="$HOME/.bashrc" ;;
+      zsh) rc_file="$HOME/.zshrc" ;;
+      *)
+        warn "当前 shell 为 ${shell_name:-未知}，已跳过自动 source，请重新打开终端。"
+        return 0
+        ;;
+    esac
+
+    if [[ ! -f "$rc_file" ]]; then
+      warn "$rc_file 不存在，已跳过自动 source。"
+      return 0
+    fi
+
+    if [[ "$shell_name" == "bash" ]]; then
+      # shellcheck disable=SC1090
+      source "$rc_file" || warn "source $rc_file 失败，请稍后手动 source 或重新打开终端。"
+    else
+      zsh -c 'source "$1"' _ "$rc_file" >/dev/null 2>&1 || warn "source $rc_file 失败，请稍后手动 source 或重新打开终端。"
+    fi
+  }
+fi
 
 confirm() {
   local prompt="${1:-是否继续？}"
@@ -244,25 +316,6 @@ configure_p10k_theme() {
   fi
 }
 
-ensure_line_in_file() {
-  local file="$1"
-  local line="$2"
-
-  if [[ ! -f "$file" ]]; then
-    warn "$file 不存在，已跳过写入。"
-    return 1
-  fi
-
-  if grep -Fxq "$line" "$file"; then
-    return 0
-  fi
-
-  if ! printf '\n%s\n' "$line" >> "$file"; then
-    error "写入 $file 失败。"
-    return 1
-  fi
-}
-
 ensure_block_in_file() {
   local file="$1"
   local marker="$2"
@@ -313,50 +366,6 @@ ensure_nvm_env_in_file() {
   fi
 }
 
-get_existing_shell_rc_files() {
-  local rc_file
-  local rc_files=(
-    "$HOME/.bashrc"
-    "$HOME/.zshrc"
-  )
-
-  for rc_file in "${rc_files[@]}"; do
-    if [[ -f "$rc_file" ]]; then
-      printf '%s\n' "$rc_file"
-    else
-      warn "$rc_file 不存在，已跳过。"
-    fi
-  done
-}
-
-source_current_shell_rc() {
-  local shell_name
-  local rc_file
-
-  shell_name="$(current_shell_name)"
-  case "$shell_name" in
-    bash) rc_file="$HOME/.bashrc" ;;
-    zsh) rc_file="$HOME/.zshrc" ;;
-    *)
-      warn "当前 shell 为 ${shell_name:-未知}，已跳过自动 source，请重新打开终端。"
-      return 0
-      ;;
-  esac
-
-  if [[ ! -f "$rc_file" ]]; then
-    warn "$rc_file 不存在，已跳过自动 source。"
-    return 0
-  fi
-
-  # source 用户配置可能因交互命令失败，失败时只提示。
-  if [[ "$shell_name" == "bash" ]]; then
-    # shellcheck disable=SC1090
-    source "$rc_file" || warn "source $rc_file 失败，请稍后手动 source 或重新打开终端。"
-  else
-    zsh -c 'source "$1"' _ "$rc_file" >/dev/null 2>&1 || warn "source $rc_file 失败，请稍后手动 source 或重新打开终端。"
-  fi
-}
-
 fix_shell_env() {
   local rc_file
   local rc_files=()
@@ -365,7 +374,7 @@ fix_shell_env() {
 
   while IFS= read -r rc_file; do
     rc_files+=("$rc_file")
-  done < <(get_existing_shell_rc_files)
+  done < <(shell_rc_files)
 
   if ((${#rc_files[@]} == 0)); then
     warn "未检测到 ~/.bashrc 或 ~/.zshrc，已跳过环境变量修复。"
@@ -401,7 +410,7 @@ fix_shell_env() {
     fi
 
     if ((uv_installed == 1)); then
-      if ensure_line_in_file "$rc_file" 'export PATH="$HOME/.local/bin:$PATH"'; then
+      if shell_append_line_if_missing "$rc_file" 'export PATH="$HOME/.local/bin:$PATH"'; then
         success "$rc_file 中的 uv PATH 已检查。"
       else
         warn "$rc_file 中的 uv PATH 修复未完成。"
@@ -409,7 +418,7 @@ fix_shell_env() {
     fi
   done
 
-  source_current_shell_rc
+  shell_source_current_rc "$(current_shell_name)"
 }
 
 load_nvm() {

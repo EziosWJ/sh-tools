@@ -3,40 +3,26 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_RAW_BASE="${REPO_RAW_BASE:-https://raw.githubusercontent.com/EziosWJ/sh-tools/master}"
+source "$SCRIPT_DIR/lib/tool-registry.sh"
 
 usage() {
-  cat <<'EOF'
-用法：
-  bash sh-tools.sh
-  bash sh-tools.sh menu
-  bash sh-tools.sh list
-  bash sh-tools.sh init-Linux [args...]
-  bash sh-tools.sh add-tmux-help [args...]
-  bash sh-tools.sh proxyctl [args...]
-  bash sh-tools.sh install-karpathy-skills [args...]
-EOF
+  echo "用法："
+  echo "  bash sh-tools.sh"
+  echo "  bash sh-tools.sh menu"
+  echo "  bash sh-tools.sh list"
+
+  local tool
+  while IFS= read -r tool; do
+    echo "  bash sh-tools.sh $tool [args...]"
+  done < <(tool_registry_names)
 }
 
 has_local_tool() {
   local tool="$1"
+  local entry
 
-  case "$tool" in
-    init-Linux)
-      [[ -f "$SCRIPT_DIR/init-Linux/init-linux.sh" ]]
-      ;;
-    add-tmux-help)
-      [[ -f "$SCRIPT_DIR/add-tmux-help/add-tmux-help.sh" ]]
-      ;;
-    proxyctl)
-      [[ -f "$SCRIPT_DIR/proxyctl/proxyctl.sh" ]]
-      ;;
-    install-karpathy-skills)
-      [[ -f "$SCRIPT_DIR/install-karpathy-skills/install-karpathy-skills.sh" ]]
-      ;;
-    *)
-      return 1
-      ;;
-  esac
+  entry="$(tool_registry_local_entry "$tool")" || return 1
+  [[ -f "$SCRIPT_DIR/$entry" ]]
 }
 
 run_remote_bash_script() {
@@ -48,127 +34,152 @@ run_remote_bash_script() {
 run_remote_tool() {
   local tool="$1"
   shift || true
+  local entry
 
-  case "$tool" in
-    init-Linux)
-      run_remote_bash_script "$REPO_RAW_BASE/init-Linux/init-linux.sh" "$@"
-      ;;
-    add-tmux-help)
-      run_remote_bash_script "$REPO_RAW_BASE/add-tmux-help/add-tmux-help.sh" "$@"
-      ;;
-    proxyctl)
-      if (($# == 0)); then
-        run_remote_bash_script "$REPO_RAW_BASE/proxyctl/proxyctl.sh"
-      else
-        bash <(curl -fsSL "$REPO_RAW_BASE/proxyctl/proxyctl.sh") "$@"
-      fi
-      ;;
-    install-karpathy-skills)
-      run_remote_bash_script "$REPO_RAW_BASE/install-karpathy-skills/install-karpathy-skills.sh" "$@"
-      ;;
-    *)
-      printf '未知工具：%s\n\n' "$tool" >&2
-      usage
-      return 1
-      ;;
-  esac
+  entry="$(tool_registry_remote_entry "$tool")" || {
+    printf '未知工具：%s\n\n' "$tool" >&2
+    usage
+    return 1
+  }
+
+  if [[ "$tool" == "proxyctl" ]] && (($# > 0)); then
+    bash <(curl -fsSL "$REPO_RAW_BASE/$entry") "$@"
+    return 0
+  fi
+
+  run_remote_bash_script "$REPO_RAW_BASE/$entry" "$@"
 }
 
 run_tool() {
   local tool="$1"
   shift || true
+  local entry
 
   if has_local_tool "$tool"; then
-    case "$tool" in
-      init-Linux)
-        bash "$SCRIPT_DIR/init-Linux/init-linux.sh" "$@"
-        ;;
-      add-tmux-help)
-        bash "$SCRIPT_DIR/add-tmux-help/add-tmux-help.sh" "$@"
-        ;;
-      proxyctl)
-        bash "$SCRIPT_DIR/proxyctl/proxyctl.sh" "$@"
-        ;;
-      install-karpathy-skills)
-        bash "$SCRIPT_DIR/install-karpathy-skills/install-karpathy-skills.sh" "$@"
-        ;;
-    esac
+    entry="$(tool_registry_local_entry "$tool")"
+    bash "$SCRIPT_DIR/$entry" "$@"
     return 0
   fi
 
   run_remote_tool "$tool" "$@"
 }
 
-show_menu() {
-  cat <<'EOF'
-请选择工具：
-
-1) init-Linux
-2) add-tmux-help
-3) proxyctl
-4) install-karpathy-skills
-5) 列出工具
-0) 退出
-EOF
+print_tool_list() {
+  tool_registry_names
 }
 
-prompt_proxyctl_command() {
+show_menu() {
+  local index=1
+  local tool
+  local description
+
+  echo "请选择工具："
+  echo ""
+
+  while IFS= read -r tool; do
+    description="$(tool_registry_description "$tool")"
+    printf '%s) %s - %s\n' "$index" "$tool" "$description"
+    index=$((index + 1))
+  done < <(tool_registry_names)
+
+  printf '%s) %s\n' "$index" "列出工具"
+  echo "0) 退出"
+}
+
+menu_pick_tool_by_index() {
+  local target_index="$1"
+  local current_index=1
+  local tool
+
+  while IFS= read -r tool; do
+    if [[ "$current_index" == "$target_index" ]]; then
+      printf '%s\n' "$tool"
+      return 0
+    fi
+    current_index=$((current_index + 1))
+  done < <(tool_registry_names)
+
+  return 1
+}
+
+prompt_tool_commands() {
+  local tool="$1"
+  local count
+  local index
   local command
+  local selected
 
-  cat <<'EOF'
-请选择 proxyctl 命令：
+  count="$(tool_registry_menu_command_count "$tool")" || return 1
+  if [[ "$count" == "0" ]]; then
+    run_tool "$tool"
+    return 0
+  fi
 
-1) on
-2) off
-3) apt-on
-4) apt-off
-5) docker-on
-6) docker-off
-7) docker-status
-8) pip-on
-9) pip-off
-10) pip-status
-11) status
-0) 返回
-EOF
+  echo "请选择 $tool 命令："
+  echo ""
+  for ((index = 1; index <= count; index++)); do
+    command="$(tool_registry_menu_command_label "$tool" "$index")"
+    printf '%s) %s\n' "$index" "$command"
+  done
+  echo "0) 返回"
 
-  read -r -p "请输入选项编号: " command || return 0
+  read -r -p "请输入选项编号: " selected || return 0
 
-  case "$command" in
-    1) run_tool proxyctl on ;;
-    2) run_tool proxyctl off ;;
-    3) run_tool proxyctl apt-on ;;
-    4) run_tool proxyctl apt-off ;;
-    5) run_tool proxyctl docker-on ;;
-    6) run_tool proxyctl docker-off ;;
-    7) run_tool proxyctl docker-status ;;
-    8) run_tool proxyctl pip-on ;;
-    9) run_tool proxyctl pip-off ;;
-    10) run_tool proxyctl pip-status ;;
-    11) run_tool proxyctl status ;;
-    0) return 0 ;;
-    *) printf '无效选项，请输入 0-11。\n' >&2; return 1 ;;
-  esac
+  if [[ "$selected" == "0" ]]; then
+    return 0
+  fi
+  if [[ ! "$selected" =~ ^[0-9]+$ ]] || ((selected < 1 || selected > count)); then
+    printf '无效选项，请输入 0-%s。\n' "$count" >&2
+    return 1
+  fi
+
+  command="$(tool_registry_menu_command_label "$tool" "$selected")"
+  run_tool "$tool" "$command"
 }
 
 interactive_menu() {
   local choice
+  local tool
+  local tool_count
+
+  tool_count="$(tool_registry_names | wc -l | tr -d ' ')"
 
   while true; do
     printf '\n'
     show_menu
     read -r -p "请输入选项编号: " choice || return 0
 
-    case "$choice" in
-      1) run_tool init-Linux ;;
-      2) run_tool add-tmux-help ;;
-      3) prompt_proxyctl_command ;;
-      4) run_tool install-karpathy-skills ;;
-      5) printf 'init-Linux\nadd-tmux-help\nproxyctl\ninstall-karpathy-skills\n' ;;
-      0) return 0 ;;
-      *) printf '无效选项，请输入 0-5。\n' >&2 ;;
-    esac
+    if [[ "$choice" == "0" ]]; then
+      return 0
+    fi
+    if [[ "$choice" == "$((tool_count + 1))" ]]; then
+      print_tool_list
+      continue
+    fi
+    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+      printf '无效选项，请输入 0-%s。\n' "$((tool_count + 1))" >&2
+      continue
+    fi
+
+    tool="$(menu_pick_tool_by_index "$choice")" || {
+      printf '无效选项，请输入 0-%s。\n' "$((tool_count + 1))" >&2
+      continue
+    }
+    prompt_tool_commands "$tool"
   done
+}
+
+is_registered_tool() {
+  local target="$1"
+  local tool
+
+  while IFS= read -r tool; do
+    if [[ "$tool" == "$target" ]]; then
+      return 0
+    fi
+  done < <(tool_registry_names)
+
+  return 1
 }
 
 main() {
@@ -179,16 +190,18 @@ main() {
       interactive_menu
       ;;
     list)
-      printf 'init-Linux\nadd-tmux-help\nproxyctl\ninstall-karpathy-skills\n'
+      print_tool_list
       ;;
     -h|--help|help)
       usage
       ;;
-    init-Linux|add-tmux-help|proxyctl|install-karpathy-skills)
-      shift
-      run_tool "$command" "$@"
-      ;;
     *)
+      if is_registered_tool "$command"; then
+        shift
+        run_tool "$command" "$@"
+        return 0
+      fi
+
       printf '未知命令：%s\n\n' "$command" >&2
       usage
       return 1

@@ -9,6 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # 加载工具函数
 source "$SCRIPT_DIR/lib/utils.sh"
+source "$SCRIPT_DIR/../lib/shell-integration.sh"
 
 # 检查依赖
 check_dependencies() {
@@ -111,15 +112,13 @@ add_to_rc() {
     return
   fi
   
-  # 检查是否已安装
   if grep -qF "$MARKER_START" "$rc_file"; then
-    # 删除旧的 tmux-help 块（含首尾标记行）
-    sed -i "/$MARKER_START/,/$MARKER_END/d" "$rc_file"
     info "$rc_file 中已移除旧版 $func_name"
   fi
   
-  # 生成并添加新函数定义
-  generate_function_def "$func_name" "$func_file" >> "$rc_file"
+  local function_def
+  function_def="$(generate_function_def "$func_name" "$func_file")"
+  shell_replace_marked_block "$rc_file" "$MARKER_START" "$MARKER_END" "$function_def"
   success "已添加 $func_name 到 $rc_file"
 }
 
@@ -150,9 +149,9 @@ install_main() {
       return 1
     fi
     
-    # 添加到bashrc和zshrc
-    add_to_rc "$HOME/.bashrc" "$func_name" "$func_file"
-    add_to_rc "$HOME/.zshrc" "$func_name" "$func_file"
+    while IFS= read -r rc_file; do
+      add_to_rc "$rc_file" "$func_name" "$func_file"
+    done < <(shell_rc_files)
   done
   
   # 创建符号链接（可选）
@@ -198,14 +197,14 @@ WRAPPER
 uninstall_main() {
   info "开始卸载 tmux-helper..."
   
-  local rc_files=("$HOME/.bashrc" "$HOME/.zshrc")
-  
-  for rc_file in "${rc_files[@]}"; do
-    if [[ -f "$rc_file" ]] && grep -qF "$MARKER_START" "$rc_file"; then
-      sed -i "/$MARKER_START/,/$MARKER_END/d" "$rc_file"
+  local rc_file
+
+  while IFS= read -r rc_file; do
+    if grep -qF "$MARKER_START" "$rc_file"; then
+      shell_remove_marked_block "$rc_file" "$MARKER_START" "$MARKER_END"
       success "从 $rc_file 移除 tmux-helper"
     fi
-  done
+  done < <(shell_rc_files)
   
   # 删除符号链接
   local bin_dir="$HOME/.local/bin"
