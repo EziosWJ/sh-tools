@@ -58,30 +58,37 @@ bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/inst
 Gitee 入口：
 
 ```bash
+export REPO_RAW_BASE="https://gitee.com/ezios/sh-tools/raw/master"
+
 # sh-tools - 总入口，交互选择工具，本地无仓库时自动走远程模式
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/sh-tools.sh)
+bash <(curl -fsSL "$REPO_RAW_BASE/sh-tools.sh")
 
 # init-Linux - Debian 系 Linux 开发环境初始化
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/init-Linux/init-linux.sh)
+bash <(curl -fsSL "$REPO_RAW_BASE/init-Linux/init-linux.sh")
 
 # add-tmux-help - 添加 tmux 快捷键帮助函数
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/add-tmux-help/add-tmux-help.sh)
+bash <(curl -fsSL "$REPO_RAW_BASE/add-tmux-help/add-tmux-help.sh")
 
 # proxyctl - 代理管理工具
-curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/proxyctl/proxyctl.sh | sudo tee /usr/local/bin/proxyctl >/dev/null && sudo chmod +x /usr/local/bin/proxyctl
+curl -fsSL "$REPO_RAW_BASE/proxyctl/proxyctl.sh" | sudo tee /usr/local/bin/proxyctl >/dev/null && sudo chmod +x /usr/local/bin/proxyctl
 
 # agents - AI agent 工具安装入口，内部再选择具体 agent 和安装方式
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/agents/agents.sh)
+bash <(curl -fsSL "$REPO_RAW_BASE/agents/agents.sh")
 
 # skills - skills 安装入口，内部再选择具体 provider
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/skills/skills.sh)
+bash <(curl -fsSL "$REPO_RAW_BASE/skills/skills.sh")
 
 # skills/karpathy - 下载 CLAUDE.md 并创建 AGENTS.md 软链接
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/skills/providers/karpathy.sh)
+bash <(curl -fsSL "$REPO_RAW_BASE/skills/providers/karpathy.sh")
 
 # 兼容旧入口，等价于 skills/karpathy
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/install-karpathy-skills/install-karpathy-skills.sh)
+bash <(curl -fsSL "$REPO_RAW_BASE/install-karpathy-skills/install-karpathy-skills.sh")
 ```
+
+说明：
+
+- Gitee 入口建议先设置 `REPO_RAW_BASE`
+- 这样从总入口进入二级脚本时，后续静态资源也会继续走 Gitee，而不是回落到 GitHub
 
 ## 推荐使用顺序
 
