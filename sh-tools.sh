@@ -14,7 +14,8 @@ if ! declare -F tool_registry_names >/dev/null 2>&1; then
       "init-Linux" \
       "add-tmux-help" \
       "proxyctl" \
-      "install-karpathy-skills"
+      "install-karpathy-skills" \
+      "skills"
   }
 fi
 
@@ -34,6 +35,9 @@ if ! declare -F tool_registry_description >/dev/null 2>&1; then
         ;;
       install-karpathy-skills)
         printf '%s\n' "下载 CLAUDE.md 并创建 AGENTS.md 软链接"
+        ;;
+      skills)
+        printf '%s\n' "skills 安装入口，二级选择具体 provider"
         ;;
       *)
         return 1
@@ -59,6 +63,9 @@ if ! declare -F tool_registry_local_entry >/dev/null 2>&1; then
       install-karpathy-skills)
         printf '%s\n' "install-karpathy-skills/install-karpathy-skills.sh"
         ;;
+      skills)
+        printf '%s\n' "skills/skills.sh"
+        ;;
       *)
         return 1
         ;;
@@ -80,7 +87,7 @@ if ! declare -F tool_registry_menu_command_count >/dev/null 2>&1; then
       proxyctl)
         printf '%s\n' "11"
         ;;
-      init-Linux|add-tmux-help|install-karpathy-skills)
+      init-Linux|add-tmux-help|install-karpathy-skills|skills)
         printf '%s\n' "0"
         ;;
       *)

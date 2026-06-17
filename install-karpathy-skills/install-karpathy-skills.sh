@@ -1,17 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-CLAUDE_URL="https://raw.githubusercontent.com/forrestchang/andrej-karpathy-skills/main/CLAUDE.md"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_RAW_BASE="${REPO_RAW_BASE:-https://raw.githubusercontent.com/EziosWJ/sh-tools/master}"
 
-main() {
-  echo "Downloading CLAUDE.md..."
-  curl -fsSL -o CLAUDE.md "$CLAUDE_URL"
+if [[ -f "$SCRIPT_DIR/../skills/providers/karpathy.sh" ]]; then
+  bash "$SCRIPT_DIR/../skills/providers/karpathy.sh" "$@"
+  exit 0
+fi
 
-  ln -sfn ./CLAUDE.md AGENTS.md
-
-  echo "Done."
-  echo "  CLAUDE.md <- $CLAUDE_URL"
-  echo "  AGENTS.md -> ./CLAUDE.md"
-}
-
-main "$@"
+bash <(curl -fsSL "$REPO_RAW_BASE/skills/providers/karpathy.sh") "$@"

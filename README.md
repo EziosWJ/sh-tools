@@ -9,7 +9,8 @@
 | [init-Linux](./init-Linux/init-linux.sh) | Linux/WSL 开发环境初始化脚本 |
 | [add-tmux-help](./add-tmux-help/add-tmux-help.sh) | 向 shell 配置添加 tmux 快捷键帮助函数 |
 | [proxyctl](./proxyctl/proxyctl.sh) | 代理管理工具，一键管理 Shell/Git/NPM/APT 代理 |
-| [install-karpathy-skills](./install-karpathy-skills/install-karpathy-skills.sh) | 下载 `CLAUDE.md` 并创建 `AGENTS.md` 软链接 |
+| [install-karpathy-skills](./install-karpathy-skills/install-karpathy-skills.sh) | 兼容旧入口，实际委托给 `skills/karpathy` |
+| [skills](./skills/skills.sh) | skills 安装入口，当前包含 `karpathy` 和 `mattpocock/skills` |
 | [sh-tools](./sh-tools.sh) | 总入口脚本，交互选择并调用各工具入口，支持本地/远程双模式 |
 
 ## 快速安装
@@ -27,7 +28,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/add-
 # proxyctl - 代理管理工具
 curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/proxyctl/proxyctl.sh | sudo tee /usr/local/bin/proxyctl >/dev/null && sudo chmod +x /usr/local/bin/proxyctl
 
-# install-karpathy-skills - 下载 CLAUDE.md 并创建 AGENTS.md 软链接
+# skills - skills 安装入口，内部再选择具体 provider
+bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/skills/skills.sh)
+
+# skills/karpathy - 下载 CLAUDE.md 并创建 AGENTS.md 软链接
+bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/skills/providers/karpathy.sh)
+
+# 兼容旧入口，等价于 skills/karpathy
 bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/install-karpathy-skills/install-karpathy-skills.sh)
 ```
 
@@ -37,5 +44,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/inst
 - [x] add-tmux-help
 - [x] proxyctl
 - [x] install-karpathy-skills
+- [x] skills
 - [x] sh-tools
 - [ ] 待续
