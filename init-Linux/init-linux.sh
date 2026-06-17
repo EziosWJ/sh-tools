@@ -549,7 +549,8 @@ setup_mirror() {
     script_file="$(mktemp)"
     trap 'rm -f "$script_file"' RETURN
     download_to_file "https://linuxmirrors.cn/main.sh" "$script_file" "linuxmirror 脚本" || return 1
-    bash "$script_file"
+    info "linuxmirror 需要 root 权限，接下来会通过 sudo 执行。"
+    sudo bash "$script_file"
     rm -f "$script_file"
     trap - RETURN
     success "linuxmirror 脚本已执行结束。"
@@ -625,6 +626,14 @@ install_powerlevel10k() {
   fi
 
   configure_p10k_theme
+}
+
+install_zsh_stack() {
+  info "开始安装完整 zsh 体验：zsh + Oh My Zsh + Powerlevel10k"
+  install_zsh || return 1
+  install_oh_my_zsh || return 1
+  install_powerlevel10k || return 1
+  success "zsh 体验安装流程已完成。"
 }
 
 configure_p10k_theme() {
@@ -986,9 +995,7 @@ run_all() {
   setup_mirror
   apt_update
   install_deps
-  install_zsh
-  install_oh_my_zsh
-  install_powerlevel10k
+  install_zsh_stack
   install_nvm
   install_node_lts
   install_uv
@@ -1005,18 +1012,19 @@ show_menu() {
 3) 检查并安装基础依赖
 4) 安装常用开发工具
 5) 初始化 Git 全局配置
-6) 安装 zsh
-7) 安装 Oh My Zsh
-8) 安装 Powerlevel10k
-9) 安装 nvm
-10) 安装 Node.js LTS
-11) 配置 Node 工具链（corepack / pnpm）
-12) 安装 Python 开发工具
-13) 初始化 SSH key
-14) 查看 WSL 状态与建议
-15) 安装 uv
-16) 修复 nvm / uv 环境变量
-17) 一键安装全部
+6) 安装完整 zsh 体验（zsh + Oh My Zsh + Powerlevel10k）
+7) 安装 zsh
+8) 安装 Oh My Zsh
+9) 安装 Powerlevel10k
+10) 安装 nvm
+11) 安装 Node.js LTS
+12) 配置 Node 工具链（corepack / pnpm）
+13) 安装 Python 开发工具
+14) 初始化 SSH key
+15) 查看 WSL 状态与建议
+16) 安装 uv
+17) 修复 nvm / uv 环境变量
+18) 一键安装全部
 0) 退出
 MENU
 }
@@ -1035,20 +1043,21 @@ interactive_menu() {
       3) install_deps ;;
       4) install_devtools ;;
       5) configure_git ;;
-      6) install_zsh ;;
-      7) install_oh_my_zsh ;;
-      8) install_powerlevel10k ;;
-      9) install_nvm ;;
-      10) install_node_lts ;;
-      11) configure_node_tools ;;
-      12) install_python_tools ;;
-      13) init_ssh ;;
-      14) show_wsl_advice ;;
-      15) install_uv ;;
-      16) fix_shell_env ;;
-      17) run_all ;;
+      6) install_zsh_stack ;;
+      7) install_zsh ;;
+      8) install_oh_my_zsh ;;
+      9) install_powerlevel10k ;;
+      10) install_nvm ;;
+      11) install_node_lts ;;
+      12) configure_node_tools ;;
+      13) install_python_tools ;;
+      14) init_ssh ;;
+      15) show_wsl_advice ;;
+      16) install_uv ;;
+      17) fix_shell_env ;;
+      18) run_all ;;
       0) success "已退出。"; return 0 ;;
-      *) warn "无效选项，请输入 0-17。" ;;
+      *) warn "无效选项，请输入 0-18。" ;;
     esac
   done
 }
@@ -1056,24 +1065,25 @@ interactive_menu() {
 usage() {
   cat <<'USAGE'
 用法：
-  bash init-ubuntu.sh
-  bash init-ubuntu.sh all
-  bash init-ubuntu.sh check
-  bash init-ubuntu.sh mirror
-  bash init-ubuntu.sh deps
-  bash init-ubuntu.sh devtools
-  bash init-ubuntu.sh gitcfg
-  bash init-ubuntu.sh zsh
-  bash init-ubuntu.sh ohmyzsh
-  bash init-ubuntu.sh p10k
-  bash init-ubuntu.sh nvm
-  bash init-ubuntu.sh node
-  bash init-ubuntu.sh nodetools
-  bash init-ubuntu.sh pytools
-  bash init-ubuntu.sh ssh-init
-  bash init-ubuntu.sh wsl
-  bash init-ubuntu.sh uv
-  bash init-ubuntu.sh env
+  bash init-linux.sh
+  bash init-linux.sh all
+  bash init-linux.sh check
+  bash init-linux.sh mirror
+  bash init-linux.sh deps
+  bash init-linux.sh devtools
+  bash init-linux.sh gitcfg
+  bash init-linux.sh zsh-stack
+  bash init-linux.sh zsh
+  bash init-linux.sh ohmyzsh
+  bash init-linux.sh p10k
+  bash init-linux.sh nvm
+  bash init-linux.sh node
+  bash init-linux.sh nodetools
+  bash init-linux.sh pytools
+  bash init-linux.sh ssh-init
+  bash init-linux.sh wsl
+  bash init-linux.sh uv
+  bash init-linux.sh env
 USAGE
 }
 
@@ -1088,6 +1098,7 @@ main() {
     deps) install_deps ;;
     devtools) install_devtools ;;
     gitcfg) configure_git ;;
+    zsh-stack) install_zsh_stack ;;
     zsh) install_zsh ;;
     ohmyzsh) install_oh_my_zsh ;;
     p10k) install_powerlevel10k ;;

@@ -131,6 +131,10 @@ if ! declare -F tool_registry_menu_command_label >/dev/null 2>&1; then
 fi
 
 usage() {
+  echo "SH-TOOLS"
+  echo "  我的个人 shell / agent 工具箱。"
+  echo "  目标是让新机器初始化、agent 安装和 skills 接入更直接。"
+  echo ""
   echo "用法："
   echo "  bash sh-tools.sh"
   echo "  bash sh-tools.sh menu"
@@ -193,11 +197,24 @@ print_tool_list() {
   tool_registry_names
 }
 
+show_intro() {
+  echo "SH-TOOLS"
+  echo "  个人 shell / agent 工具箱"
+  echo "  支持本地仓库执行，也支持远程单文件入口"
+  echo ""
+  echo "推荐路径："
+  echo "  1. 新 Debian / Ubuntu / WSL 环境先跑 init-Linux"
+  echo "  2. 再按需安装 agents"
+  echo "  3. 最后补充 skills"
+  echo ""
+}
+
 show_menu() {
   local index=1
   local tool
   local description
 
+  show_intro
   echo "请选择工具："
   echo ""
 

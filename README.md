@@ -1,6 +1,17 @@
 # SH-TOOLS
 
-常用工具存储仓库。
+这是我的个人 shell / agent 工具箱仓库。
+
+它主要解决三类事情：
+
+- 新 Debian / Ubuntu / WSL 环境初始化
+- 常用 AI agent 工具安装、检查、更新
+- skills / 规范文件的快速接入
+
+整个仓库优先保证两点：
+
+- 本地仓库里能直接执行
+- 没有 clone 仓库时，也能通过远程单文件入口使用
 
 ## 工具列表
 
@@ -41,6 +52,12 @@ bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/skil
 # 兼容旧入口，等价于 skills/karpathy
 bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/install-karpathy-skills/install-karpathy-skills.sh)
 ```
+
+## 推荐使用顺序
+
+1. 新 Debian / Ubuntu / WSL 环境先运行 `init-Linux`
+2. 按需进入 `agents` 安装常用 agent 工具
+3. 按需进入 `skills` 安装技能或规范文件
 
 ## PLAN
 
