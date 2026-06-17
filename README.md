@@ -27,6 +27,8 @@
 
 ## 快速安装
 
+GitHub 入口：
+
 ```bash
 # sh-tools - 总入口，交互选择工具，本地无仓库时自动走远程模式
 bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/sh-tools.sh)
@@ -51,6 +53,34 @@ bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/skil
 
 # 兼容旧入口，等价于 skills/karpathy
 bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/install-karpathy-skills/install-karpathy-skills.sh)
+```
+
+Gitee 入口：
+
+```bash
+# sh-tools - 总入口，交互选择工具，本地无仓库时自动走远程模式
+bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/sh-tools.sh)
+
+# init-Linux - Debian 系 Linux 开发环境初始化
+bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/init-Linux/init-linux.sh)
+
+# add-tmux-help - 添加 tmux 快捷键帮助函数
+bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/add-tmux-help/add-tmux-help.sh)
+
+# proxyctl - 代理管理工具
+curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/proxyctl/proxyctl.sh | sudo tee /usr/local/bin/proxyctl >/dev/null && sudo chmod +x /usr/local/bin/proxyctl
+
+# agents - AI agent 工具安装入口，内部再选择具体 agent 和安装方式
+bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/agents/agents.sh)
+
+# skills - skills 安装入口，内部再选择具体 provider
+bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/skills/skills.sh)
+
+# skills/karpathy - 下载 CLAUDE.md 并创建 AGENTS.md 软链接
+bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/skills/providers/karpathy.sh)
+
+# 兼容旧入口，等价于 skills/karpathy
+bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/install-karpathy-skills/install-karpathy-skills.sh)
 ```
 
 ## 推荐使用顺序
