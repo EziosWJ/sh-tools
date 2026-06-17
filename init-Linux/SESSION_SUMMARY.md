@@ -2,7 +2,7 @@
 
 ## 背景
 
-本仓库用于维护 Ubuntu / Debian / WSL Ubuntu 的初始化脚本 `init-ubuntu.sh`，目标是：
+本仓库用于维护 Debian 系 Linux 初始化脚本 `init-linux.sh`，WSL 作为可选增强场景，目标是：
 
 - 可选择执行
 - 可一键执行

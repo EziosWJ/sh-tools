@@ -1,10 +1,10 @@
-# Codex Prompt：生成 Ubuntu / WSL 初始化脚本
+# Codex Prompt：生成 Debian 系 Linux 初始化脚本
 
-你是一名经验丰富的 Linux 运维工程师和 Bash 脚本开发者。请根据以下需求，实现一个 Ubuntu / WSL 初始化脚本。
+你是一名经验丰富的 Linux 运维工程师和 Bash 脚本开发者。请根据以下需求，实现一个 Debian 系 Linux 初始化脚本。
 
 ## 目标
 
-实现一个通用快捷脚本，用于我在新安装 Ubuntu 虚拟机或 WSL Ubuntu 环境后，快速完成常用开发环境初始化。
+实现一个通用快捷脚本，用于我在新安装 Debian 系 Linux 或其 WSL 环境后，快速完成常用开发环境初始化。
 
 脚本名称建议为：
 
@@ -18,7 +18,7 @@ init-ubuntu.sh
 - 可一键安装全部
 - 可重复执行
 - 能检测并修复 nvm / uv 环境变量
-- 适合 Ubuntu / Debian / WSL Ubuntu 场景
+- 适合 Debian 系 Linux 场景，WSL 作为可选增强
 
 ## 基本要求
 
@@ -31,7 +31,7 @@ init-ubuntu.sh
 7. 不要自动创建 `~/.zshrc`。
 8. 不要同时写入 `.bashrc` 和 `.zshrc`，只处理当前 shell 对应的配置文件。
 9. 需要有清晰的日志输出。
-10. 对 Ubuntu / Debian 以外系统只提醒用户，不强行继续。
+10. 对 Debian 系以外系统只提醒用户，不强行继续。
 
 ## 支持的命令行参数
 
@@ -125,7 +125,7 @@ bash init-ubuntu.sh
 要求：
 
 1. 检测当前系统是否有 `apt`。
-2. 如果没有 `apt`，提示当前脚本主要支持 Ubuntu / Debian / WSL Ubuntu。
+2. 如果没有 `apt`，提示当前脚本主要支持 Debian 系发行版，并提供 WSL 可选增强。
 3. 检测是否为 WSL 环境。
 4. 输出当前系统信息，例如：
    - `uname -a`

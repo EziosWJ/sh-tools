@@ -6,6 +6,7 @@ tool_registry_names() {
     "add-tmux-help" \
     "proxyctl" \
     "install-karpathy-skills" \
+    "agents" \
     "skills"
 }
 
@@ -14,7 +15,7 @@ tool_registry_description() {
 
   case "$tool" in
     init-Linux)
-      printf '%s\n' "Linux/WSL 开发环境初始化脚本"
+      printf '%s\n' "Debian 系 Linux 开发环境初始化脚本（含 WSL 增强）"
       ;;
     add-tmux-help)
       printf '%s\n' "向 shell 配置添加 tmux 快捷键帮助函数"
@@ -24,6 +25,9 @@ tool_registry_description() {
       ;;
     install-karpathy-skills)
       printf '%s\n' "下载 CLAUDE.md 并创建 AGENTS.md 软链接"
+      ;;
+    agents)
+      printf '%s\n' "AI agent 工具安装入口，支持 Codex、Claude Code、OpenCode、Hermes、Pi Agent"
       ;;
     skills)
       printf '%s\n' "skills 安装入口，二级选择具体 provider"
@@ -50,6 +54,9 @@ tool_registry_local_entry() {
     install-karpathy-skills)
       printf '%s\n' "install-karpathy-skills/install-karpathy-skills.sh"
       ;;
+    agents)
+      printf '%s\n' "agents/agents.sh"
+      ;;
     skills)
       printf '%s\n' "skills/skills.sh"
       ;;
@@ -75,6 +82,9 @@ tool_registry_remote_entry() {
     install-karpathy-skills)
       printf '%s\n' "install-karpathy-skills/install-karpathy-skills.sh"
       ;;
+    agents)
+      printf '%s\n' "agents/agents.sh"
+      ;;
     skills)
       printf '%s\n' "skills/skills.sh"
       ;;
@@ -91,7 +101,7 @@ tool_registry_menu_command_count() {
     proxyctl)
       printf '%s\n' "11"
       ;;
-    init-Linux|add-tmux-help|install-karpathy-skills|skills)
+    init-Linux|add-tmux-help|install-karpathy-skills|agents|skills)
       printf '%s\n' "0"
       ;;
     *)

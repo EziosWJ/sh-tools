@@ -17,6 +17,7 @@ if ! declare -F tool_registry_names >/dev/null 2>&1; then
       "add-tmux-help" \
       "proxyctl" \
       "install-karpathy-skills" \
+      "agents" \
       "skills"
   }
 fi
@@ -27,7 +28,7 @@ if ! declare -F tool_registry_description >/dev/null 2>&1; then
 
     case "$tool" in
       init-Linux)
-        printf '%s\n' "Linux/WSL 开发环境初始化脚本"
+        printf '%s\n' "Debian 系 Linux 开发环境初始化脚本（含 WSL 增强）"
         ;;
       add-tmux-help)
         printf '%s\n' "向 shell 配置添加 tmux 快捷键帮助函数"
@@ -37,6 +38,9 @@ if ! declare -F tool_registry_description >/dev/null 2>&1; then
         ;;
       install-karpathy-skills)
         printf '%s\n' "下载 CLAUDE.md 并创建 AGENTS.md 软链接"
+        ;;
+      agents)
+        printf '%s\n' "AI agent 工具安装入口，支持 Codex、Claude Code、OpenCode、Hermes、Pi Agent"
         ;;
       skills)
         printf '%s\n' "skills 安装入口，二级选择具体 provider"
@@ -65,6 +69,9 @@ if ! declare -F tool_registry_local_entry >/dev/null 2>&1; then
       install-karpathy-skills)
         printf '%s\n' "install-karpathy-skills/install-karpathy-skills.sh"
         ;;
+      agents)
+        printf '%s\n' "agents/agents.sh"
+        ;;
       skills)
         printf '%s\n' "skills/skills.sh"
         ;;
@@ -89,7 +96,7 @@ if ! declare -F tool_registry_menu_command_count >/dev/null 2>&1; then
       proxyctl)
         printf '%s\n' "11"
         ;;
-      init-Linux|add-tmux-help|install-karpathy-skills|skills)
+      init-Linux|add-tmux-help|install-karpathy-skills|agents|skills)
         printf '%s\n' "0"
         ;;
       *)
@@ -200,7 +207,6 @@ show_menu() {
     index=$((index + 1))
   done < <(tool_registry_names)
 
-  printf '%s) %s\n' "$index" "列出工具"
   echo "0) 退出"
 }
 
@@ -258,10 +264,6 @@ prompt_tool_commands() {
 interactive_menu() {
   local choice
   local tool
-  local tool_count
-
-  tool_count="$(tool_registry_names | wc -l | tr -d ' ')"
-
   while true; do
     printf '\n'
     show_menu
@@ -270,17 +272,13 @@ interactive_menu() {
     if [[ "$choice" == "0" ]]; then
       return 0
     fi
-    if [[ "$choice" == "$((tool_count + 1))" ]]; then
-      print_tool_list
-      continue
-    fi
     if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
-      printf '无效选项，请输入 0-%s。\n' "$((tool_count + 1))" >&2
+      printf '无效选项，请输入 0-%s。\n' "$(tool_registry_names | wc -l | tr -d ' ')" >&2
       continue
     fi
 
     tool="$(menu_pick_tool_by_index "$choice")" || {
-      printf '无效选项，请输入 0-%s。\n' "$((tool_count + 1))" >&2
+      printf '无效选项，请输入 0-%s。\n' "$(tool_registry_names | wc -l | tr -d ' ')" >&2
       continue
     }
     prompt_tool_commands "$tool"

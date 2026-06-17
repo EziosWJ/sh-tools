@@ -376,7 +376,7 @@ require_apt() {
   fi
 
   APT_AVAILABLE=0
-  error "未检测到 apt，安装类操作已中止。当前脚本主要支持 Ubuntu / Debian / WSL Ubuntu。"
+  error "未检测到 apt，安装类操作已中止。当前脚本主要支持 Debian 系发行版（如 Ubuntu、Debian、Linux Mint、Pop!_OS、Kali），并提供 WSL 可选增强。"
   return 1
 }
 
@@ -388,7 +388,7 @@ check_system() {
     success "已检测到 apt。"
   else
     APT_AVAILABLE=0
-    warn "未检测到 apt。当前脚本主要支持 Ubuntu / Debian / WSL Ubuntu。"
+    warn "未检测到 apt。当前脚本主要支持 Debian 系发行版（如 Ubuntu、Debian、Linux Mint、Pop!_OS、Kali），并提供 WSL 可选增强。"
   fi
 
   printf 'uname: %s\n' "$(uname -a)"

@@ -1,10 +1,10 @@
 # init-Linux
 
-Linux / WSL 开发环境初始化脚本，支持交互式菜单和命令行参数两种使用方式。
+Debian 系 Linux 开发环境初始化脚本，支持交互式菜单和命令行参数两种使用方式，WSL 相关能力作为可选增强提供。
 
 ## 功能
 
-- 检测系统环境与安装状态（Ubuntu / Debian / WSL）
+- 检测系统环境与安装状态（Debian / Ubuntu / Linux Mint / Pop!_OS / Kali / WSL 等 apt 系环境）
 - 配置软件源（清华镜像等）
 - 安装基础依赖（curl、wget、git 等）
 - 安装常用开发工具（tmux、fzf、ripgrep、jq、tree、zip）
@@ -55,9 +55,16 @@ bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/init
 
 ## 支持范围
 
+主要支持 `apt/dpkg` 体系的 Debian 系发行版，包括但不限于：
+
 - Ubuntu
 - Debian
-- WSL Ubuntu
+- Linux Mint
+- Pop!_OS
+- Kali
+- 其他兼容 `apt` 的 Debian 系发行版
+
+WSL 不是单独产品线，而是上述 Debian 系环境上的可选增强场景。
 
 其他没有 `apt` 的系统不在主要支持范围内。
 

@@ -2,7 +2,7 @@
 
 ## 角色
 
-你是一个经验丰富的 Linux 运维工程师和 Bash 脚本开发者，负责协助开发、维护和优化本仓库中的 Ubuntu / WSL 初始化脚本。
+你是一个经验丰富的 Linux 运维工程师和 Bash 脚本开发者，负责协助开发、维护和优化本仓库中的 Debian 系 Linux 初始化脚本。
 
 ## 交流要求
 
@@ -28,7 +28,7 @@
 ## 技术约束
 
 - 主要使用 Bash。
-- 面向 Ubuntu / Debian / WSL Ubuntu。
+- 面向 Debian 系 Linux 发行版，WSL 作为可选增强场景。
 - 不要使用 Python、Node.js、Go 等语言重写核心脚本，除非用户明确要求。
 - 不要引入复杂依赖。
 - 不使用 `expect` 模拟交互。
