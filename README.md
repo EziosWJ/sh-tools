@@ -21,7 +21,7 @@
 | [add-tmux-help](./add-tmux-help/add-tmux-help.sh) | 向 shell 配置添加 tmux 快捷键帮助函数 |
 | [install-karpathy-skills](./install-karpathy-skills/install-karpathy-skills.sh) | 兼容旧入口，实际委托给 `skills/karpathy` |
 | [agents](./agents/agents.sh) | AI agent 工具安装入口，支持 Codex、Claude Code、OpenCode、Hermes、Pi Agent |
-| [skills](./skills/skills.sh) | skills 安装入口，当前包含 `karpathy` 和 `mattpocock/skills` |
+| [skills](./skills/skills.sh) | skills 安装入口，包含项目规则模板、`karpathy` 和 `mattpocock/skills` |
 | [sh-tools](./sh-tools.sh) | 总入口脚本，交互选择并调用各工具入口，支持本地/远程双模式 |
 
 ## 快速安装
@@ -43,6 +43,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/agen
 
 # skills - skills 安装入口，内部再选择具体 provider
 bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/skills/skills.sh)
+
+# skills/agents-template - 初始化中文 AGENTS.md 和引用它的 CLAUDE.md
+bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/skills/providers/agents-template.sh)
 
 # skills/karpathy - 下载 CLAUDE.md 并创建 AGENTS.md 软链接
 bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/skills/providers/karpathy.sh)
@@ -77,6 +80,9 @@ bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/agents/agents.sh)
 
 # skills - skills 安装入口，内部再选择具体 provider
 bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/skills/skills.sh)
+
+# skills/agents-template - 初始化中文 AGENTS.md 和引用它的 CLAUDE.md
+bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/skills/providers/agents-template.sh)
 
 # skills/karpathy - 下载 CLAUDE.md 并创建 AGENTS.md 软链接
 bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/skills/providers/karpathy.sh)
