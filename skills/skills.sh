@@ -7,6 +7,7 @@ RUNTIME_DIR="${SH_TOOLS_SKILLS_RUNTIME_DIR:-$HOME/.local/share/sh-tools/skills}"
 
 provider_names() {
   printf '%s\n' \
+    "agents-template" \
     "karpathy" \
     "mattpocock"
 }
@@ -15,6 +16,9 @@ provider_description() {
   local provider="$1"
 
   case "$provider" in
+    agents-template)
+      printf '%s\n' "初始化中文 AGENTS.md 与引用它的 CLAUDE.md"
+      ;;
     karpathy)
       printf '%s\n' "下载 Karpathy CLAUDE.md 并创建 AGENTS.md 软链接"
       ;;
@@ -31,6 +35,9 @@ provider_local_entry() {
   local provider="$1"
 
   case "$provider" in
+    agents-template)
+      printf '%s\n' "providers/agents-template.sh"
+      ;;
     karpathy)
       printf '%s\n' "providers/karpathy.sh"
       ;;

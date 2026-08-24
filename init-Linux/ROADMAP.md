@@ -19,9 +19,8 @@
 范围：
 
 - 系统环境：`apt`、WSL、当前 shell、当前用户
-- 核心工具：`curl`、`wget`、`git`、`zsh`
-- 常用开发工具状态：`tmux`、`fzf`、`rg`、`jq`
-- Shell 栈：Oh My Zsh、Powerlevel10k、rc 文件存在情况
+- 核心工具：`curl`、`wget`、`git`
+- Agent 工具状态：`rg`、`jq`、`tmux`，以及可选的 `fzf`、`tree`、`zip`
 - Node 栈：`nvm`、`node`、`npm`
 - Python 栈：`uv`
 - rc 配置状态：`nvm` 环境变量、`uv` PATH
@@ -29,26 +28,26 @@
 验收：
 
 - `bash init-linux.sh check` 能输出结构化状态摘要
-- 用户可据此决定下一步执行 `deps`、`zsh`、`ohmyzsh`、`nvm`、`uv` 或 `env`
+- 用户可据此决定下一步执行 `deps`、`agenttools`、`nvm`、`uv` 或 `env`
 
-## Plan 2：开发工具包 `devtools`（已完成）
+## Plan 2：Agent 工具包 `agenttools`（已完成）
 
 目标：
 
-- 补齐一台开发机最常见的基础工具
+- 补齐本地 agent 的检索、数据处理与会话管理能力
 
 候选包：
 
-- `tmux`
-- `fzf`
 - `ripgrep`
 - `jq`
-- `tree`
-- `zip`
+- `tmux`
+- `fzf`（可选增强）
+- `tree`（可选增强）
+- `zip`（可选增强）
 
 验收：
 
-- `bash init-linux.sh devtools` 能识别缺失项并安装
+- `bash init-linux.sh agenttools` 能识别缺失项并安装
 - 重复执行时已安装项自动跳过
 
 ## Plan 3：Git 初始化 `gitcfg`（已完成）
@@ -83,7 +82,6 @@
 覆盖步骤：
 
 - `mirror`
-- `ohmyzsh`
 - `nvm`
 - `uv`
 

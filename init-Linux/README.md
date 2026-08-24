@@ -5,12 +5,11 @@ Debian 系 Linux 开发环境初始化脚本，支持交互式菜单和命令行
 ## 功能
 
 - 检测系统环境与安装状态（Debian / Ubuntu / Linux Mint / Pop!_OS / Kali / WSL 等 apt 系环境）
-- 配置软件源（清华镜像等）
-- 安装基础依赖（curl、wget、git 等）
-- 安装常用开发工具（tmux、fzf、ripgrep、jq、tree、zip）
+- 配置软件源（清华镜像等，单独执行）
+- 按核心、推荐、可选三层安装依赖
+- 安装 Agent 本地工具（检索、数据处理、会话管理）
 - 初始化 Git 全局配置（用户名、邮箱、默认分支、编辑器）
 - 下载类步骤自动复用当前代理环境，并在失败时给出代理提示
-- 安装完整 zsh 体验（zsh + Oh My Zsh + Powerlevel10k）
 - 安装 nvm + Node.js LTS
 - 配置 Node 工具链（corepack、pnpm）
 - 安装 Python 开发工具（python3、pip3、venv）
@@ -33,11 +32,13 @@ bash init-linux.sh
 
 ```bash
 bash init-linux.sh check    # 查看系统与工具状态摘要
-bash init-linux.sh all      # 一键安装全部
-bash init-linux.sh devtools # 安装常用开发工具
+bash init-linux.sh all      # 安装核心环境与推荐依赖
+bash init-linux.sh deps     # 安装核心/推荐依赖，可选择可选组
+bash init-linux.sh deps build    # 仅安装编译扩展依赖
+bash init-linux.sh deps diagnose # 仅安装诊断与同步依赖
+bash init-linux.sh agenttools # 安装 Agent 工具包
+bash init-linux.sh devtools # 兼容别名，会提示改用 agenttools
 bash init-linux.sh gitcfg   # 初始化 Git 全局配置
-bash init-linux.sh zsh-stack # 安装完整 zsh 体验
-bash init-linux.sh zsh      # 仅安装 zsh
 bash init-linux.sh nvm      # 仅安装 nvm
 bash init-linux.sh node     # 仅安装 Node.js LTS
 bash init-linux.sh nodetools # 配置 corepack / pnpm
@@ -79,24 +80,30 @@ WSL 不是单独产品线，而是上述 Debian 系环境上的可选增强场�
 
 - 系统环境：`apt`、WSL、当前 shell、当前用户、代理环境
 - 核心工具：`curl`、`wget`、`git`
-- 常用工具状态：`tmux`、`fzf`、`rg`、`jq`、`tree`、`zip`
-- Shell 栈：`zsh`、Oh My Zsh、Powerlevel10k、主题配置
+- Agent 工具状态：`rg`、`jq`、`tmux`，及可选的 `fzf`、`tree`、`zip`
 - Node 栈：`nvm`、`node`、`npm`、`corepack`、`pnpm`
 - Python / uv：`python3`、`pip3`、`uv`
-- Shell rc 配置：`~/.bashrc` / `~/.zshrc` 中的 `nvm` 环境变量与 `uv` PATH
+- Shell rc 配置：`~/.bashrc` 中的 `nvm` 环境变量与 `uv` PATH
 
-## devtools 会安装什么
+## agenttools 会安装什么
 
-`devtools` 会检查并安装以下常用开发工具：
+`agenttools` 用于补齐本地 agent 的 CLI 能力，不会加入 `all`：
 
-- `tmux`
-- `fzf`
-- `ripgrep`
-- `jq`
-- `tree`
-- `zip`
+- 核心工具：`ripgrep`、`jq`、`tmux`
+- 可选增强：`fzf`、`tree`、`zip`
 
-如果这些包都已经安装，命令会直接跳过。
+核心工具与可选增强会分别确认；已安装的包会直接跳过。旧命令 `devtools` 仍可使用，但会提示改用 `agenttools`。
+
+## deps 会安装什么
+
+依赖按三层管理，重复执行时只安装缺失包：
+
+- 核心必需：`curl`、`ca-certificates`、`git`、`tar`、`xz-utils`。`all` 会安装这组，不能跳过；它们支撑 HTTPS 下载、Git 工作流和 Node.js 压缩包解压。
+- 推荐：`openssh-client`、`wget`、`unzip`、`file`、`less`。执行 `deps` 或 `all` 时会整体询问一次。
+- 可选编译扩展：`build-essential`、`pkg-config`、`python3-dev`，用于编译原生 Node/Python 扩展。
+- 可选诊断与同步：`lsof`、`dnsutils`、`netcat-openbsd`、`rsync`。
+
+`deps` 会在核心和推荐依赖完成后询问是否选择可选组；`all` 不会安装可选组。普通用户需要 `sudo`，root 用户会直接执行 apt 操作。
 
 ## gitcfg 会配置什么
 
@@ -108,16 +115,6 @@ WSL 不是单独产品线，而是上述 Debian 系环境上的可选增强场�
 - `core.editor`
 
 如果某项已经存在，脚本会先显示当前值，再询问是否更新。
-
-## zsh-stack 会做什么
-
-`zsh-stack` 会按顺序执行：
-
-- 安装 `zsh`
-- 安装 `Oh My Zsh`
-- 安装 `Powerlevel10k`
-
-适合希望一次装完整 zsh 体验的场景；如果你只想补某一层，也可以继续使用 `zsh`、`ohmyzsh`、`p10k` 单独命令。
 
 ## nodetools 会做什么
 
@@ -142,7 +139,7 @@ WSL 不是单独产品线，而是上述 Debian 系环境上的可选增强场�
 
 `ssh-init` 会完成以下工作：
 
-- 检查 `ssh-keygen` 是否可用
+- 检查 `ssh-keygen` 是否可用；缺失时可确认安装 `openssh-client`
 - 创建 `~/.ssh` 并修正目录权限
 - 若不存在 key，则生成 `ed25519` key
 - 修正私钥、公钥权限
@@ -164,10 +161,9 @@ WSL 不是单独产品线，而是上述 Debian 系环境上的可选增强场�
 以下步骤现在会统一复用当前 shell 中的代理环境变量，并在下载失败时给出明确提示：
 
 - `mirror`
-- `ohmyzsh`
 - `nvm`
 - `uv`
 
 如果当前 shell 已设置 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY`，脚本会沿用这些配置下载。
 
-其中 `mirror` 下载完成后会通过 `sudo` 启动 `linuxmirror`，因为改源过程本身需要 root 权限。
+其中 `mirror` 下载完成后会使用 root 或 `sudo` 启动 `linuxmirror`，因为改源过程本身需要管理员权限。
