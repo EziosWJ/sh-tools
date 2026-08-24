@@ -328,7 +328,6 @@ print_proxy_guidance() {
     warn "已检测到代理环境变量：$proxy_url，请检查代理是否可用。"
   else
     warn "当前未检测到代理环境变量；如下载失败，可先配置代理后重试。"
-    warn "如果你已经安装 proxyctl，可先执行类似：source proxyctl.sh on 或 proxyctl on"
   fi
 }
 
