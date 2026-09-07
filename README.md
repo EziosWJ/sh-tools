@@ -35,6 +35,7 @@ bash <(curl -fsSL "$REPO_RAW_BASE/sh-tools.sh")
 | `agents` | [Agent 安装、更新、检查及 Claude Code profile](agents/README.md) |
 | `skills` | [项目规则模板与 skills 安装](skills/README.md) |
 | `add-tmux-help` | [tmux 会话菜单与快捷键帮助](add-tmux-help/README.md) |
+| `mihomo` | [Mihomo TUN、Docker 流量代理与 systemd 管理](mihomo/README.md) |
 
 操作结束后留在当前菜单；输入 `0` 返回上一级，总菜单输入 `0` 退出。操作失败会显示错误并回到当前菜单。直接传入子命令时，执行一次后退出并保留退出状态。
 

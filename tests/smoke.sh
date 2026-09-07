@@ -39,6 +39,18 @@ count() {
     exit 1
   }
 }
+
+bash "$ROOT/sh-tools.sh" list >"$OUT"
+grep -Fxq 'mihomo' "$OUT"
+bash "$ROOT/mihomo/mihomo.sh" --help >"$OUT"
+grep -Fq 'bash mihomo.sh setup' "$OUT"
+grep -Fq 'show-config' "$OUT"
+
+if printf '7\n0\n' | timeout 5 bash "$ROOT/mihomo/mihomo.sh" >"$OUT" 2>&1; then
+  :
+fi
+! grep -Fq 'status: command not found' "$OUT"
+
 menu() {
   local input="$1"
   shift

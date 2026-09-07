@@ -5,7 +5,8 @@ tool_registry_names() {
     "init-Linux" \
     "add-tmux-help" \
     "agents" \
-    "skills"
+    "skills" \
+    "mihomo"
 }
 
 tool_registry_description() {
@@ -23,6 +24,9 @@ tool_registry_description() {
       ;;
     skills)
       printf '%s\n' "skills 安装入口，二级选择具体 provider"
+      ;;
+    mihomo)
+      printf '%s\n' "Mihomo TUN 配置、systemd 服务与运行管理"
       ;;
     *)
       return 1
@@ -45,6 +49,9 @@ tool_registry_local_entry() {
       ;;
     skills)
       printf '%s\n' "skills/skills.sh"
+      ;;
+    mihomo)
+      printf '%s\n' "mihomo/mihomo.sh"
       ;;
     *)
       return 1
