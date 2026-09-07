@@ -1,207 +1,178 @@
 #!/usr/bin/env bash
-# tmux会话管理模块
-# 精简接口：快速切换、挂起、创建会话
+# Bash 会话菜单；所有操作只作用于明确选择的会话。
 
-# 切换到指定会话（不存在则创建）
-session_goto() {
-  local name="$1"
-  local directory="${2:-$(pwd)}"
-
-  if ! validate_session_name "$name"; then
-    return 1
-  fi
-
-  if tmux has-session -t "$name" 2>/dev/null; then
-    # 会话已存在，直接切换
-    if in_tmux; then
-      tmux switch-client -t "$name"
-    else
-      tmux attach -t "$name"
-    fi
-  else
-    # 会话不存在，创建后切换
-    directory=$(resolve_path "$directory")
-    if [[ ! -d "$directory" ]]; then
-      error "目录不存在: $directory"
-      return 1
-    fi
-    tmux new-session -d -s "$name" -c "$directory"
-    success "创建会话: $name"
-    if in_tmux; then
-      tmux switch-client -t "$name"
-    else
-      tmux attach -t "$name"
-    fi
-  fi
-}
-
-# 列出所有会话
 session_list() {
   local sessions
-  sessions=$(tmux list-sessions -F "#{session_name}|#{session_windows}|#{session_attached}" 2>/dev/null)
-
-  if [[ -z "$sessions" ]]; then
-    info "没有活动的会话"
+  sessions="$(tmux list-sessions -F '#{session_name} | #{session_windows} 个窗口 | 已连接客户端: #{session_attached}' 2>/dev/null)" || {
+    info "没有可用会话（tmux 服务可能尚未启动）。"
     return 0
-  fi
+  }
+  printf '%s\n' "$sessions"
+}
 
-  echo ""
-
-  while IFS='|' read -r name windows attached; do
-    local attached_status=" "
-    [[ "$attached" -gt 0 ]] && attached_status="[已连接]"
-    printf "  %-20s %s\n" "$name" "${windows}个窗口  $attached_status"
+session_pick() {
+  local sessions name
+  local names=()
+  sessions="$(tmux list-sessions -F '#{session_name}' 2>/dev/null)" || {
+    info "没有可用会话。" >&2
+    return 0
+  }
+  while IFS= read -r name; do
+    [[ -n "$name" ]] && names+=("$name")
   done <<< "$sessions"
-  echo ""
-}
-
-# 交互式选择会话（无参数时调用）
-session_quick() {
-  if ! check_command fzf; then
-    # 无 fzf 时退化为 list
-    session_list
+  if (( ${#names[@]} == 0 )); then
     return 0
   fi
-
-  local sessions
-  sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null)
-
-  local options=("➕ 创建新会话")
-  if [[ -n "$sessions" ]]; then
-    while IFS= read -r s; do
-      [[ -n "$s" ]] && options+=("$s")
-    done <<< "$sessions"
-  fi
-
-  local selected
-  selected=$(printf '%s\n' "${options[@]}" | fzf --prompt="会话: " --height=40% --reverse --header="选择会话 或 创建新会话")
-
-  if [[ -z "$selected" ]]; then
-    return 0
-  fi
-
-  if [[ "$selected" == "➕ 创建新会话" ]]; then
-    local name
-    name=$(echo "" | fzf --prompt="新会话名称: " --height=30% --reverse --print-query | head -1)
-    if [[ -n "$name" ]]; then
-      session_goto "$name"
-    fi
-  else
-    session_goto "$selected"
-  fi
+  select_option "选择会话：" "${names[@]}"
 }
 
-# 终止会话
-session_kill() {
+session_enter() {
   local name="$1"
+  tmux has-session -t "=$name" 2>/dev/null || {
+    error "会话不存在：$name"
+    return 1
+  }
+  if in_tmux; then
+    tmux switch-client -t "=$name"
+  else
+    tmux attach-session -t "=$name"
+  fi
+}
 
+session_create() {
+  local name="${1:-}" directory="${2:-$PWD}"
   if [[ -z "$name" ]]; then
-    # 无参数时用 fzf 选择
-    if ! check_command fzf; then
-      error "用法: tmux-session kill <名称>"
-      return 1
-    fi
-    local sessions
-    sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null)
-    if [[ -z "$sessions" ]]; then
-      info "没有活动的会话"
-      return 0
-    fi
-    name=$(printf '%s\n' $sessions | fzf --prompt="终止哪个会话: " --height=40% --reverse)
-    [[ -z "$name" ]] && return 0
+    read -r -p "新会话名称（0 返回）: " name || return 0
+    [[ "$name" == "0" ]] && return 0
+    read -r -p "工作目录 [$PWD]（0 返回）: " directory || return 0
+    [[ "$directory" == "0" ]] && return 0
+    directory="${directory:-$PWD}"
   fi
-
-  if ! tmux has-session -t "$name" 2>/dev/null; then
-    error "会话 '$name' 不存在"
+  validate_session_name "$name" || return 1
+  directory="$(resolve_path "$directory")"
+  [[ -d "$directory" ]] || { error "目录不存在：$directory"; return 1; }
+  if tmux has-session -t "=$name" 2>/dev/null; then
+    error "会话已存在：$name，请选择进入会话。"
     return 1
   fi
-
-  tmux kill-session -t "$name"
-  success "已终止会话: $name"
+  tmux new-session -d -s "$name" -c "$directory" || return 1
+  if [[ "${3:-}" == "enter" ]]; then
+    session_enter "$name"
+    return $?
+  fi
+  success "已创建会话：$name；选择“进入会话”即可连接。"
 }
 
-# 重命名当前会话
 session_rename() {
-  local new_name="$1"
-
-  if ! in_tmux; then
-    error "需要在 tmux 内使用 rename"
-    return 1
+  local name="${1:-}" new_name="${2:-}"
+  if [[ -z "$name" ]]; then
+    name="$(session_pick)" || return 1
+    [[ -n "$name" ]] || return 0
   fi
-
   if [[ -z "$new_name" ]]; then
-    # 无参数时进入交互式重命名
-    tmux command-prompt -I "#{session_name}" "rename-session -- '%%'"
-    return 0
+    read -r -p "将 $name 重命名为（0 返回）: " new_name || return 0
+    [[ "$new_name" == "0" ]] && return 0
   fi
+  validate_session_name "$new_name" || return 1
+  tmux rename-session -t "=$name" "$new_name" || return 1
+  success "已重命名：$name → $new_name"
+}
 
-  if ! validate_session_name "$new_name"; then
+session_kill() {
+  local name="${1:-}" answer
+  if [[ -z "$name" ]]; then
+    name="$(session_pick)" || return 1
+    [[ -n "$name" ]] || return 0
+  fi
+  tmux has-session -t "=$name" 2>/dev/null || {
+    error "会话不存在：$name"
     return 1
+  }
+  read -r -p "结束会话 $name 会终止其中的进程，确认？[y/N]: " answer || return 0
+  case "$answer" in
+    y|Y)
+      tmux kill-session -t "=$name" || return 1
+      success "已结束会话：$name"
+      ;;
+    *) info "已取消。" ;;
+  esac
+}
+
+session_quick() {
+  local selected sessions name
+  local options
+  while true; do
+    options=('新建会话')
+    sessions="$(tmux list-sessions -F '#{session_name}' 2>/dev/null)" || sessions=""
+    while IFS= read -r name; do
+      [[ -n "$name" ]] && options+=("会话 | $name")
+    done <<< "$sessions"
+    options+=('重命名会话' '结束会话' '快捷键帮助')
+    selected="$(select_option 'tmux 会话' "${options[@]}")" || return 0
+    case "$selected" in
+      '') return 0 ;;
+      '新建会话') session_create '' "$PWD" enter || error '创建或进入会话失败。' ;;
+      '会话 | '*) session_enter "${selected#会话 | }" || error '进入会话失败。' ;;
+      '重命名会话') session_rename || error '重命名失败。' ;;
+      '结束会话') session_kill || error '结束会话失败。' ;;
+      '快捷键帮助') show_session_help ;;
+    esac
+  done
+}
+
+session_menu() {
+  if [[ -t 0 ]] && check_command fzf; then
+    session_quick
+    return
   fi
-
-  local current
-  current=$(tmux display-message -p '#{session_name}')
-  tmux rename-session -t "$current" "$new_name"
-  success "重命名: $current -> $new_name"
+  local choice name
+  while true; do
+    printf '\ntmux 会话管理\n1) 列出会话\n2) 进入会话\n3) 新建会话\n4) 重命名会话\n5) 结束会话\n0) 返回上一级\n'
+    read -r -p "请选择编号: " choice || return 0
+    case "$choice" in
+      1) session_list || error "列出会话失败。" ;;
+      2)
+        name="$(session_pick)" || { error "读取会话失败。"; continue; }
+        if [[ -n "$name" ]]; then
+          session_enter "$name" || error "进入会话失败。"
+        fi
+        ;;
+      3) session_create || error "创建失败。" ;;
+      4) session_rename || error "重命名失败。" ;;
+      5) session_kill || error "结束会话失败。" ;;
+      0) return 0 ;;
+      *) error "输入无效。" ;;
+    esac
+  done
 }
 
-# 显示帮助信息
 show_session_help() {
-  cat <<EOF
-用法: tmux-session [命令|会话名]
-
-快捷的tmux会话管理。
-
-用法:
-  tmux-session              交互式选择/创建会话(需fzf)
-  tmux-session <名称>       切换到会话，不存在则创建
-  tmux-session ls           列出所有会话
-  tmux-session kill [名称]  终止会话(无参数则交互选择)
-  tmux-session rename [名称] 重命名当前会话
-
-示例:
-  tmux-session dev              # 切换到 dev 会话(没有则创建)
-  tmux-session myproject        # 切换到 myproject
-  tmux-session ls               # 查看所有会话
-  tmux-session kill dev         # 终止 dev 会话
-  tmux-session rename newname   # 重命名当前会话
-
-提示:
-  Ctrl+b d   挂起(detach)当前会话(会话在后台继续运行)
-  tmux attach -t <名称>   从终端恢复已挂起的会话
-EOF
+  printf '%s\n' \
+    '用法: tmux-session [命令]' \
+    '  无参数                   打开会话菜单' \
+    '  list                     列出会话' \
+    '  enter <名称>             进入已有会话' \
+    '  create <名称> [目录]     新建会话' \
+    '  rename <名称> <新名称>   重命名会话' \
+    '  kill <名称>              确认后结束会话' \
+    '进入会话后按 Ctrl+b，再按 d 挂起；从外部进入时会回到菜单。'
 }
 
-# 主函数
 tmux_session_main() {
-  load_config
-
-  local command="${1:-}"
-
-  case "$command" in
-    ls|list)
-      session_list
-      ;;
-    kill)
-      session_kill "${2:-}"
-      ;;
-    rename)
-      session_rename "${2:-}"
-      ;;
-    -h|--help|help)
-      show_session_help
-      ;;
-    "")
-      session_quick
-      ;;
-    -*)
-      error "未知选项: $command"
-      show_session_help
-      return 1
-      ;;
-    *)
-      # 默认行为：当作会话名处理
-      session_goto "$command" "${2:-}"
-      ;;
+  local action="${1:-menu}"
+  case "$action" in
+    help|-h|--help) show_session_help; return 0 ;;
+  esac
+  check_command tmux || { error "请先安装 tmux：sudo apt install tmux"; return 1; }
+  case "$action" in
+    menu) session_menu ;;
+    list) session_list ;;
+    enter)
+      [[ -n "${2:-}" ]] || { error "请指定会话名称。"; return 1; }
+      session_enter "$2" ;;
+    create) session_create "${2:-}" "${3:-$PWD}" ;;
+    rename) session_rename "${2:-}" "${3:-}" ;;
+    kill) session_kill "${2:-}" ;;
+    *) error "未知命令：$action"; show_session_help; return 1 ;;
   esac
 }

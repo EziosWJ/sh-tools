@@ -1,394 +1,209 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-marker_start() {
-  local func_name="$1"
-  printf '# >>> %s >>>\n' "$func_name"
-}
+# 进程替换输入是一次性管道；先保存完整入口，供菜单重复启动子操作。
+if [[ "$0" == /dev/fd/* || "$0" == /proc/self/fd/* ]]; then
+  menu_script="$(mktemp)"
+  trap 'rm -f -- "$menu_script"' EXIT
+  curl -fsSL "${REPO_RAW_BASE:-https://raw.githubusercontent.com/EziosWJ/sh-tools/master}/add-tmux-help/add-tmux-help.sh" -o "$menu_script"
+  bash "$menu_script" "$@"
+  exit $?
+fi
 
-marker_end() {
-  local func_name="$1"
-  printf '# <<< %s <<<\n' "$func_name"
-}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_RAW_BASE="${REPO_RAW_BASE:-https://raw.githubusercontent.com/EziosWJ/sh-tools/master}"
 RUNTIME_DIR="${ADD_TMUX_HELP_RUNTIME_DIR:-$HOME/.local/share/sh-tools/add-tmux-help}"
-
-# 获取脚本所在目录
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BIN_DIR="${ADD_TMUX_HELP_BIN_DIR:-$HOME/.local/bin}"
+RC_DIR="${ADD_TMUX_HELP_RC_DIR:-$HOME}"
 ASSET_DIR="$SCRIPT_DIR"
 
-bootstrap_info() {
-  printf '[INFO] %s\n' "$*"
-}
-
-bootstrap_warn() {
-  printf '[WARN] %s\n' "$*" >&2
-}
-
-bootstrap_error() {
-  printf '[ERROR] %s\n' "$*" >&2
-}
-
-bootstrap_runtime_assets() {
-  local target_dir="$1"
-  local files=(
-    "lib/utils.sh"
-    "lib/tmux-help.sh"
-    "lib/tmux-session.sh"
-    "tmux.conf.example"
-  )
-  local file
-
-  if ! command -v curl >/dev/null 2>&1; then
-    bootstrap_error "远程执行 add-tmux-help 需要 curl 下载运行时文件。"
-    return 1
-  fi
-
-  mkdir -p "$target_dir/lib"
-  for file in "${files[@]}"; do
-    bootstrap_info "下载运行时文件: $file"
-    curl -fsSL "$REPO_RAW_BASE/add-tmux-help/$file" -o "$target_dir/$file" || {
-      bootstrap_error "下载失败: $REPO_RAW_BASE/add-tmux-help/$file"
-      return 1
-    }
-  done
-}
-
+# 无仓库执行时，下载运行所需模块。
 if [[ ! -f "$ASSET_DIR/lib/utils.sh" ]]; then
   ASSET_DIR="$RUNTIME_DIR"
-  bootstrap_runtime_assets "$ASSET_DIR"
+  mkdir -p "$ASSET_DIR/lib"
+  for file in utils.sh tmux-help.sh tmux-session.sh; do
+    curl -fsSL "$REPO_RAW_BASE/add-tmux-help/lib/$file" -o "$ASSET_DIR/lib/$file"
+  done
 fi
-
-# 加载工具函数
 source "$ASSET_DIR/lib/utils.sh"
-if [[ -f "$SCRIPT_DIR/../lib/shell-integration.sh" ]]; then
-  source "$SCRIPT_DIR/../lib/shell-integration.sh"
-fi
 
-if ! declare -F shell_rc_files >/dev/null 2>&1; then
-  shell_rc_files() {
-    local rc_file
-    local rc_files=(
-      "$HOME/.bashrc"
-      "$HOME/.zshrc"
-    )
+run_module() {
+  local module="$1"
+  shift
+  bash -e -o pipefail -c '
+    source "$1/lib/utils.sh"
+    source "$1/lib/$2.sh"
+    module="$2"
+    shift 2
+    "${module//-/_}_main" "$@"
+  ' _ "$ASSET_DIR" "$module" "$@"
+}
 
-    for rc_file in "${rc_files[@]}"; do
-      if [[ -f "$rc_file" ]]; then
-        printf '%s\n' "$rc_file"
+# 只识别本工具标记或与 v1 生成模板完全一致的普通文件，不执行目标内容。
+command_kind() {
+  local target="$1" module="$2" legacy_dir
+  if [[ ! -e "$target" && ! -L "$target" ]]; then
+    printf 'missing\n'
+  elif [[ -f "$target" && ! -L "$target" ]]; then
+    if grep -qFx '# sh-tools tmux command' "$target"; then
+      printf 'v2\n'
+      return
+    fi
+    legacy_dir="$(sed -n '2s|^source "\(.*\)/lib/utils.sh"$|\1|p' "$target")"
+    if [[ -n "$legacy_dir" ]] && cmp -s "$target" <(
+      printf '#!/usr/bin/env bash\nsource "%s/lib/utils.sh"\nsource "%s/lib/%s.sh"\n%s_main "$@"\n' \
+        "$legacy_dir" "$legacy_dir" "$module" "${module//-/_}"
+    ); then
+      printf 'legacy\n'
+    else
+      printf 'unknown\n'
+    fi
+  else
+    printf 'unknown\n'
+  fi
+}
+
+backup_legacy_command() {
+  local target="$1" backup_dir
+  backup_dir="$(mktemp -d "$BIN_DIR/.sh-tools-backup.XXXXXX")"
+  mv -- "$target" "$backup_dir/"
+  info "旧命令已备份：$backup_dir/$(basename "$target")"
+}
+
+# 只更新旧安装器留下的标记块，避免 shell 函数直接 source Bash 模块。
+update_shell_bindings() {
+  local mode="$1" rc module fragment temporary backup
+  for rc in "$RC_DIR/.bashrc" "$RC_DIR/.zshrc"; do
+    [[ -f "$rc" ]] || continue
+    for module in tmux-help tmux-session; do
+      grep -qFx "# >>> $module >>>" "$rc" || continue
+      fragment="$(mktemp)"
+      temporary="$(mktemp)"
+      if [[ "$mode" == install ]]; then
+        {
+          printf '# >>> %s >>>\n' "$module"
+          printf '%s() {\n  command %q "$@"\n}\n' "$module" "$BIN_DIR/$module"
+          printf '# <<< %s <<<\n' "$module"
+        } > "$fragment"
       fi
+      if ! awk -v begin="# >>> $module >>>" -v end="# <<< $module <<<" -v fragment="$fragment" '
+        $0 == begin {
+          starts++; inside=1
+          while ((getline line < fragment) > 0) print line
+          close(fragment)
+          next
+        }
+        $0 == end { ends++; inside=0; next }
+        !inside { print }
+        END { if (starts != 1 || ends != 1 || inside) exit 1 }
+      ' "$rc" > "$temporary"; then
+        rm -f -- "$fragment" "$temporary"
+        error "标记块不完整或重复，未修改：$rc（$module）"
+        return 1
+      fi
+      if ! cmp -s "$rc" "$temporary"; then
+        backup="$(mktemp "$rc.sh-tools-backup.XXXXXX")"
+        cp -p -- "$rc" "$backup"
+        cp -- "$temporary" "$rc"
+        info "已更新 $rc 的 $module 绑定；原文件备份：$backup"
+      fi
+      rm -f -- "$fragment" "$temporary"
     done
-  }
-fi
-
-if ! declare -F shell_replace_marked_block >/dev/null 2>&1; then
-  shell_replace_marked_block() {
-    local file="$1"
-    local marker_start="$2"
-    local marker_end="$3"
-    local block="$4"
-
-    if [[ ! -f "$file" ]]; then
-      warn "$file 不存在，已跳过写入。"
-      return 1
-    fi
-
-    if grep -qF "$marker_start" "$file"; then
-      sed -i "/$marker_start/,/$marker_end/d" "$file"
-    fi
-
-    printf '\n%s\n' "$block" >> "$file"
-  }
-fi
-
-if ! declare -F shell_remove_marked_block >/dev/null 2>&1; then
-  shell_remove_marked_block() {
-    local file="$1"
-    local marker_start="$2"
-    local marker_end="$3"
-
-    if [[ ! -f "$file" ]]; then
-      return 1
-    fi
-
-    if grep -qF "$marker_start" "$file"; then
-      sed -i "/$marker_start/,/$marker_end/d" "$file"
-    fi
-  }
-fi
-
-# 检查依赖
-check_dependencies() {
-  local required_deps=("bash" "tmux")
-  local optional_deps=("fzf" "jq")
-  local missing_required=()
-  local missing_optional=()
-  
-  for dep in "${required_deps[@]}"; do
-    if ! check_command "$dep"; then
-      missing_required+=("$dep")
-    fi
   done
-  
-  for dep in "${optional_deps[@]}"; do
-    if ! check_command "$dep"; then
-      missing_optional+=("$dep")
-    fi
-  done
-  
-  if [[ ${#missing_required[@]} -gt 0 ]]; then
-    error "缺少必要依赖: ${missing_required[*]}"
-    echo "请安装这些依赖后重试"
-    return 1
-  fi
-  
-  if [[ ${#missing_optional[@]} -gt 0 ]]; then
-    warn "缺少可选依赖: ${missing_optional[*]}"
-    echo "某些功能可能受限，但基本功能可用"
-  fi
-  
-  return 0
 }
 
-# 创建配置目录
-create_config_dirs() {
-  local config_dir="$HOME/.config/tmux-helper"
-  local session_dir="$config_dir/sessions"
-  local template_file="$config_dir/templates.conf"
-  
-  ensure_directory "$config_dir"
-  ensure_directory "$session_dir"
-  
-  # 创建默认模板文件（如果不存在）
-  if [[ ! -f "$template_file" ]]; then
-    cat > "$template_file" <<EOF
-# tmux-helper 模板配置
-# 格式: 模板名称|工作目录|启动命令
-web-project|~/projects/webapp|npm run dev
-python-api|~/projects/api|python manage.py runserver
-node-server|~/projects/node-app|node server.js
-EOF
-    info "创建默认模板文件: $template_file"
-  fi
-  
-  # 创建默认配置文件（如果不存在）
-  local config_file="$config_dir/config"
-  if [[ ! -f "$config_file" ]]; then
-    cp "$ASSET_DIR/tmux.conf.example" "$config_file"
-    info "创建默认配置文件: $config_file"
-  fi
-}
-
-# 生成函数定义
-generate_function_def() {
-  local func_name="$1"
-  local func_file="$2"
-  local block_marker_start
-  local block_marker_end
-
-  block_marker_start="$(marker_start "$func_name")"
-  block_marker_end="$(marker_end "$func_name")"
-  
-  cat <<EOF
-$block_marker_start
-# tmux-helper 函数定义
-# 自动安装于 $(date -Iseconds)
-
-# 加载工具函数
-if [[ -f "$ASSET_DIR/lib/utils.sh" ]]; then
-  source "$ASSET_DIR/lib/utils.sh"
-fi
-
-# 加载 $func_name 模块
-if [[ -f "$func_file" ]]; then
-  source "$func_file"
-fi
-
-# $func_name 主函数
-$func_name() {
-  ${func_name//[-]/_}_main "\$@"
-}
-$block_marker_end
-EOF
-}
-
-# 添加到rc文件
-add_to_rc() {
-  local rc_file="$1"
-  local func_name="$2"
-  local func_file="$3"
-  local block_marker_start
-  local block_marker_end
-  block_marker_start="$(marker_start "$func_name")"
-  block_marker_end="$(marker_end "$func_name")"
-  
-  if [[ ! -f "$rc_file" ]]; then
-    warn "$rc_file 不存在，跳过"
-    return
-  fi
-  
-  if grep -qF "$block_marker_start" "$rc_file"; then
-    info "$rc_file 中已移除旧版 $func_name"
-  fi
-  
-  local function_def
-  function_def="$(generate_function_def "$func_name" "$func_file")"
-  shell_replace_marked_block "$rc_file" "$block_marker_start" "$block_marker_end" "$function_def"
-  success "已添加 $func_name 到 $rc_file"
-}
-
-# 安装主函数
 install_main() {
-  info "开始安装 tmux-helper..."
-  
-  # 检查依赖
-  if ! check_dependencies; then
-    return 1
-  fi
-  
-  # 创建配置目录
-  create_config_dirs
-  
-  # 安装各个模块
-  local modules=(
-    "tmux-help:$ASSET_DIR/lib/tmux-help.sh"
-    "tmux-session:$ASSET_DIR/lib/tmux-session.sh"
-  )
-  
-  for module_info in "${modules[@]}"; do
-    local func_name="${module_info%%:*}"
-    local func_file="${module_info##*:}"
-    
-    if [[ ! -f "$func_file" ]]; then
-      error "模块文件不存在: $func_file"
+  local file module target kind
+  # 先检查全部目标，避免遇到第二个冲突时已经覆盖第一个命令。
+  for module in tmux-help tmux-session; do
+    target="$BIN_DIR/$module"
+    if [[ "$(command_kind "$target" "$module")" == "unknown" ]]; then
+      error "目标已存在且无法确认为本工具命令：$target，已保留，请先处理该文件再安装。"
       return 1
     fi
-    
-    while IFS= read -r rc_file; do
-      add_to_rc "$rc_file" "$func_name" "$func_file"
-    done < <(shell_rc_files)
   done
-  
-  # 创建符号链接（可选）
-  local bin_dir="$HOME/.local/bin"
-  if [[ -d "$bin_dir" ]]; then
-    for module_info in "${modules[@]}"; do
-      local func_name="${module_info%%:*}"
-      local link_name="$bin_dir/$func_name"
-      # 将连字符转换为下划线作为函数名
-      local main_func="${func_name//[-]/_}_main"
-      
-      if [[ ! -L "$link_name" ]]; then
-        # 创建包装脚本
-        cat > "$link_name" <<WRAPPER
-#!/usr/bin/env bash
-source "$ASSET_DIR/lib/utils.sh"
-source "${module_info##*:}"
-$main_func "\$@"
-WRAPPER
-        chmod +x "$link_name"
-        info "创建符号链接: $link_name"
-      fi
-    done
-  fi
-  
-  success "安装完成！"
-  echo ""
-  echo "请执行以下命令使配置生效:"
-  echo "  source ~/.bashrc   # bash"
-  echo "  source ~/.zshrc    # zsh"
-  echo ""
-  echo "可用命令:"
-  echo "  tmux-help              # 显示所有快捷键帮助"
-  echo "  tmux-help session      # 查看会话管理帮助"
-  echo "  tmux-help -i           # 交互模式"
-  echo "  tmux-session           # 交互式选择/创建会话"
-  echo "  tmux-session <名称>    # 切换到会话(不存在则创建)"
-  echo "  tmux-session ls        # 列出会话"
-  echo "  tmux-session kill      # 终止会话"
-}
-
-# 卸载函数
-uninstall_main() {
-  info "开始卸载 tmux-helper..."
-  
-  local rc_file
-  local func_name
-  local markers=("tmux-help" "tmux-session")
-
-  while IFS= read -r rc_file; do
-    for func_name in "${markers[@]}"; do
-      if grep -qF "$(marker_start "$func_name")" "$rc_file"; then
-        shell_remove_marked_block "$rc_file" "$(marker_start "$func_name")" "$(marker_end "$func_name")"
-        success "从 $rc_file 移除 $func_name"
-      fi
-    done
-  done < <(shell_rc_files)
-  
-  # 删除符号链接
-  local bin_dir="$HOME/.local/bin"
-  if [[ -d "$bin_dir" ]]; then
-    for link_name in tmux-help tmux-session; do
-      if [[ -L "$bin_dir/$link_name" ]]; then
-        rm "$bin_dir/$link_name"
-        info "删除符号链接: $bin_dir/$link_name"
-      fi
-    done
-  fi
-  
-  # 询问是否删除配置目录
-  local config_dir="$HOME/.config/tmux-helper"
-  if [[ -d "$config_dir" ]]; then
-    read -p "是否删除配置目录 $config_dir? [y/N] " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-      rm -rf "$config_dir"
-      info "删除配置目录: $config_dir"
+  mkdir -p "$RUNTIME_DIR/lib" "$BIN_DIR"
+  for file in utils.sh tmux-help.sh tmux-session.sh; do
+    if [[ ! "$ASSET_DIR/lib/$file" -ef "$RUNTIME_DIR/lib/$file" ]]; then
+      cp "$ASSET_DIR/lib/$file" "$RUNTIME_DIR/lib/$file"
     fi
-  fi
-  
-  success "卸载完成！"
-}
-
-# 显示帮助
-show_install_help() {
-  cat <<EOF
-用法: add-tmux-help.sh [选项]
-
-tmux-helper 安装脚本。
-
-选项:
-  install    安装 tmux-helper (默认)
-  uninstall  卸载 tmux-helper
-  -h, --help 显示此帮助信息
-
-示例:
-  bash add-tmux-help.sh           # 安装
-  bash add-tmux-help.sh uninstall # 卸载
-EOF
-}
-
-# 主函数
-main() {
-  local command="${1:-install}"
-  
-  case "$command" in
-    install)
-      install_main
-      ;;
-    uninstall)
-      uninstall_main
-      ;;
-    -h|--help)
-      show_install_help
-      ;;
-    *)
-      error "未知命令: $command"
-      show_install_help
-      return 1
-      ;;
+  done
+  for module in tmux-help tmux-session; do
+    target="$BIN_DIR/$module"
+    kind="$(command_kind "$target" "$module")"
+    if [[ "$kind" == "legacy" ]]; then
+      backup_legacy_command "$target"
+    fi
+    {
+      printf '#!/usr/bin/env bash\n# sh-tools tmux command\nset -Eeuo pipefail\n'
+      printf 'source %q\n' "$RUNTIME_DIR/lib/utils.sh"
+      printf 'source %q\n' "$RUNTIME_DIR/lib/$module.sh"
+      printf '%s_main "$@"\n' "${module//-/_}"
+    } > "$target"
+    chmod +x "$target"
+  done
+  update_shell_bindings install
+  success "已安装 tmux-session 和 tmux-help 到 $BIN_DIR"
+  info "若当前终端已加载旧版函数，请重新打开终端后使用。"
+  case ":${PATH}:" in
+    *":$BIN_DIR:"*) ;;
+    *) printf '当前 PATH 未包含该目录；可直接执行：%q\n' "$BIN_DIR/tmux-session" ;;
   esac
 }
 
-# 执行主函数
+uninstall_main() {
+  update_shell_bindings uninstall
+  local module target
+  for module in tmux-help tmux-session; do
+    target="$BIN_DIR/$module"
+    case "$(command_kind "$target" "$module")" in
+      v2)
+        rm -- "$target"
+        success "已移除命令：$target" ;;
+      legacy) backup_legacy_command "$target" ;;
+      unknown) warn "未移除无法识别的命令：$target；安装时仍会提示此冲突。" ;;
+      missing) info "命令未安装：$target" ;;
+    esac
+  done
+  info "会话和运行时文件保留；不会终止任何 tmux 会话。"
+}
+
+show_install_help() {
+  printf '%s\n' \
+    '用法: bash add-tmux-help.sh [menu|install|uninstall|sessions|help]' \
+    '  无参数进入菜单；sessions 打开会话管理。' \
+    '  keys [分类] 查看快捷键，keys -i 打开分类菜单。' \
+    '  install 安装用户命令，并修正旧安装器留下的 shell 绑定。'
+}
+
+main() {
+  local action="${1:-menu}" choice
+  case "$action" in
+    menu)
+      while true; do
+        printf '\ntmux 工具\n1) 会话管理\n2) 快捷键帮助\n3) 安装 tmux-session / tmux-help 命令\n4) 卸载命令\n0) 返回上一级\n'
+        read -r -p "请选择编号: " choice || return 0
+        case "$choice" in
+          1) action="sessions" ;;
+          2) action="keys" ;;
+          3) action="install" ;;
+          4) action="uninstall" ;;
+          0) return 0 ;;
+          *) error "输入无效。"; continue ;;
+        esac
+        if [[ "$action" == "keys" ]]; then
+          bash "$0" keys -i || error "操作失败，请检查上方错误。"
+        else
+          bash "$0" "$action" || error "操作失败，请检查上方错误。"
+        fi
+      done ;;
+    sessions) shift; run_module tmux-session "$@" ;;
+    keys) shift; run_module tmux-help "$@" ;;
+    install) install_main ;;
+    uninstall) uninstall_main ;;
+    help|-h|--help) show_install_help ;;
+    *) error "未知命令：$action"; return 1 ;;
+  esac
+}
+
 main "$@"

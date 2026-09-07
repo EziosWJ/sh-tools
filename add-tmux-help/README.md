@@ -1,237 +1,61 @@
-# tmux-helper
+# tmux 工具
 
-tmux 辅助工具集，提供快捷键帮助、会话管理和模板功能。
+Bash 会话工具，提供上下键选择会话和快捷键帮助。终端中安装了 `fzf` 时使用交互选择器，否则回退数字菜单；无需 jq 或额外配置文件。
 
-## 功能特性
-
-### 1. 帮助显示 (`tmux-help`)
-
-快速查看 tmux 快捷键帮助信息。
+## 直接使用
 
 ```bash
-tmux-help [分类]           # 显示指定分类帮助
-tmux-help -i, --interactive    # 交互模式
-tmux-help -s, --search 关键词  # 搜索快捷键
-tmux-help -h, --help           # 显示帮助
+bash sh-tools.sh add-tmux-help
 ```
 
-**分类：**
-- `session` - 会话管理
-- `window` - 窗口操作
-- `pane` - 面板操作
-- `copy` - 复制模式
-- `layout` - 布局管理
-- `resize` - 调整大小
-- `all` - 显示全部（默认）
+进入“会话管理”后可列出、进入、新建、重命名、结束会话；“快捷键帮助”按分类查看。每次操作后留在当前菜单，输入 `0` 返回上一级。输入结束（EOF）退出菜单。
 
-### 2. 会话管理 (`tmux-session`)
+运行 `tmux-session` 后，使用上下键选择会话、回车进入，也可以直接选择“新建会话”，填写名称和目录后自动进入。选择器中按 `0` 或 `Esc` 返回。数字菜单及 `create` 子命令仅创建、不自动进入。
 
-管理 tmux 会话，支持保存/恢复布局。
+进入后使用 `Ctrl+b`，再按 `d` 挂起：
 
-```bash
-tmux-session create <名称> [目录]  # 创建会话
-tmux-session list                  # 列出所有会话
-tmux-session switch                # 交互式切换会话
-tmux-session kill <名称>           # 终止会话
-tmux-session save [名称]           # 保存当前会话布局
-tmux-session restore <名称>        # 恢复会话布局
-tmux-session template list         # 列出预设模板
-tmux-session template create       # 从模板创建会话
-tmux-session status                # 显示当前状态
-```
+- 从 tmux 外进入时，挂起后回到会话菜单。
+- 从 tmux 内切换时，菜单仍在原会话的面板中，返回原会话可继续使用。
+- 如果结束运行菜单自身的会话，该面板和菜单也会随之结束。
 
-### 3. 项目模板系统
+结束会话前必须确认，会终止会话中的进程。会话名称按完整名称匹配。
 
-预设常用项目模板，快速创建开发环境。
+## 安装快捷命令
 
-**配置文件位置：** `~/.config/tmux-helper/templates.conf`
+在工具菜单选择“安装命令”，或执行：
 
 ```bash
-# 格式: 模板名称|工作目录|启动命令
-web-project|~/projects/webapp|npm run dev
-python-api|~/projects/api|python manage.py runserver
-node-server|~/projects/node-app|node server.js
-```
-
-### 4. 环境检测
-
-自动检测 tmux 环境，动态显示相关信息。
-
-- tmux 内：显示当前状态信息
-- tmux 外：显示可用命令和连接提示
-
-## 安装
-
-### 本地安装
-
-```bash
-git clone <repository-url>
-cd sh-tools/add-tmux-help
-bash add-tmux-help.sh
-```
-
-### 一键安装
-
-```bash
-curl -fsSL <raw-url>/add-tmux-help.sh | bash
-```
-
-### 卸载
-
-```bash
-bash add-tmux-help.sh uninstall
-```
-
-## 配置
-
-### 配置文件
-
-配置文件位于 `~/.config/tmux-helper/config`：
-
-```bash
-# 自动扫描的项目目录（逗号分隔）
-TMUX_HELPER_SCAN_DIRS="~/projects,~/work,~/code"
-
-# 会话保存目录
-TMUX_HELPER_SESSION_DIR="~/.config/tmux-helper/sessions"
-
-# 模板文件
-TMUX_HELPER_TEMPLATE_FILE="~/.config/tmux-helper/templates.conf"
-
-# 默认编辑器
-TMUX_HELPER_DEFAULT_EDITOR="vim"
-
-# 交互界面工具（fzf 或 select）
-TMUX_HELPER_SELECTOR="fzf"
-```
-
-### 可选依赖
-
-- **fzf** - 提供更好的交互式选择界面
-- **jq** - 提供 JSON 处理能力
-
-安装可选依赖：
-```bash
-# Ubuntu/Debian
-sudo apt install fzf jq
-
-# macOS
-brew install fzf jq
-```
-
-## 使用示例
-
-### 帮助显示
-
-```bash
-# 显示所有快捷键
-tmux-help
-
-# 显示面板操作帮助
-tmux-help pane
-
-# 交互模式选择分类
+bash add-tmux-help/add-tmux-help.sh install
+tmux-session
 tmux-help -i
-
-# 搜索包含"copy"的快捷键
-tmux-help -s copy
 ```
 
-### 会话管理
+脚本把运行模块复制到 `~/.local/share/sh-tools/add-tmux-help/`，在 `~/.local/bin/` 创建命令。若 `.bashrc` / `.zshrc` 中存在旧安装器的 tmux 标记块，会先备份再改为调用独立命令，避免 zsh 直接执行 Bash 函数。无旧标记块时不添加 shell 配置。安装后重新打开终端，清除已加载的旧函数。
+
+命令由 Bash 执行，可从其他 shell 调用。如果命令目录不在 PATH 中，安装器会提示完整路径。需要上下键选择时，可先安装 `fzf`（Debian / Ubuntu：`sudo apt install fzf`）。
+
+## 常用命令
 
 ```bash
-# 创建新会话
-tmux-session create myproject ~/projects/myapp
-
-# 列出所有会话
 tmux-session list
-
-# 保存当前会话布局
-tmux-session save
-
-# 恢复会话布局
-tmux-session restore myproject
-
-# 从模板创建会话
-tmux-session template create web-project
+tmux-session create dev /path/to/project
+tmux-session enter dev
+tmux-session rename dev work
+tmux-session kill work
+tmux-help session
+tmux-help -s 分屏
 ```
 
-### 模板系统
+`tmux-session` 无参数打开菜单；新建、选择和重命名提示中输入 `0` 取消并返回。直接传入子命令时执行一次并退出。
+
+## 卸载
 
 ```bash
-# 列出可用模板
-tmux-session template list
-
-# 从模板创建会话
-tmux-session template create python-api
-
-# 创建自定义模板
-# 编辑 ~/.config/tmux-helper/templates.conf
+bash add-tmux-help/add-tmux-help.sh uninstall
 ```
 
-## 目录结构
+卸载会删除带本工具标记的 v2 命令；对与 v1 生成模板完全一致的旧命令，会移动到命令目录中的 `.sh-tools-backup.*` 目录并打印备份路径。直接安装也会先备份这些旧命令，再安装 v2。未知来源的同名文件或软链接会保留并明确提示；安装在修改命令前检查全部目标。
 
-```
-add-tmux-help/
-├── add-tmux-help.sh          # 安装脚本
-├── lib/
-│   ├── tmux-help.sh          # 帮助显示模块
-│   ├── tmux-session.sh       # session 管理模块
-│   └── utils.sh              # 工具函数
-├── tmux.conf.example         # 示例配置文件
-└── README.md                 # 文档
-```
+运行时文件和所有会话保留。卸载也会备份并移除旧安装器留下的 tmux 标记块，其他 shell 配置保留；当前终端已加载的函数需重新打开终端才能清除。
 
-## 兼容性
-
-- **Shell**: bash 4.0+, zsh
-- **tmux**: 2.1+
-- **操作系统**: Linux, macOS
-
-## 故障排除
-
-### 命令未找到
-
-如果安装后命令未找到，请执行：
-
-```bash
-source ~/.bashrc   # bash
-source ~/.zshrc    # zsh
-```
-
-### 权限问题
-
-如果遇到权限问题：
-
-```bash
-chmod +x add-tmux-help.sh
-chmod +x lib/*.sh
-```
-
-### 配置文件损坏
-
-删除配置目录重新安装：
-
-```bash
-rm -rf ~/.config/tmux-helper
-bash add-tmux-help.sh
-```
-
-## 开发
-
-### 添加新模块
-
-1. 在 `lib/` 目录创建新的 `.sh` 文件
-2. 实现 `_main` 函数作为入口
-3. 在 `add-tmux-help.sh` 中添加模块安装逻辑
-
-### 代码规范
-
-- 使用 `set -Eeuo pipefail`
-- 函数命名：小写+连字符
-- 变量命名：大写+下划线
-- 添加必要的注释
-
-## 许可证
-
-MIT License
+远程执行方式见[首页](../README.md)。调试时可以用 `ADD_TMUX_HELP_RUNTIME_DIR`、`ADD_TMUX_HELP_BIN_DIR`、`ADD_TMUX_HELP_RC_DIR` 指向临时运行目录、命令目录和 shell 配置目录。
