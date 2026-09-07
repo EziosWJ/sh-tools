@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+exec env -u TMUX "$TMUX_TEST_BINARY" -L "$TMUX_TEST_SOCKET" -f /dev/null "$@"

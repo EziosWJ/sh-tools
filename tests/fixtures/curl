@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+destination=""
+url=""
+while (($#)); do
+  case "$1" in
+    -o) destination="$2"; shift 2 ;;
+    -*) shift ;;
+    *) url="$1"; shift ;;
+  esac
+done
+[[ "$url" == https://sh-tools.test/* ]] || exit 22
+[[ "$url" != "${SH_TOOLS_TEST_FAIL_URL:-}" ]] || exit 22
+file="$SH_TOOLS_TEST_REPO/${url#https://sh-tools.test/}"
+[[ -f "$file" ]] || exit 22
+if [[ -n "$destination" ]]; then
+  cp "$file" "$destination"
+else
+  cat "$file"
+fi
