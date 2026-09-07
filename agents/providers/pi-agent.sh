@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# 进程替换输入是一次性管道；先保存完整入口，供菜单重复启动子操作。
+if [[ "$0" == /dev/fd/* || "$0" == /proc/self/fd/* ]]; then
+  menu_script="$(mktemp)"
+  trap 'rm -f -- "$menu_script"' EXIT
+  curl -fsSL "${REPO_RAW_BASE:-https://raw.githubusercontent.com/EziosWJ/sh-tools/master}/agents/providers/pi-agent.sh" -o "$menu_script"
+  bash "$menu_script" "$@"
+  exit $?
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_RAW_BASE="${REPO_RAW_BASE:-https://raw.githubusercontent.com/EziosWJ/sh-tools/master}"
 RUNTIME_DIR="${SH_TOOLS_AGENTS_RUNTIME_DIR:-$HOME/.local/share/sh-tools/agents}"
@@ -81,7 +90,7 @@ show_menu() {
   echo "4) update/curl - 用官方脚本更新"
   echo "5) update/npm - 用 npm 更新"
   echo "6) remove-info - 查看卸载建议"
-  echo "0) 退出"
+  echo "0) 返回上一级"
 }
 
 main() {
@@ -90,19 +99,21 @@ main() {
 
   case "$method" in
     menu)
-      show_menu
-      echo ""
-      read -r -p "请输入选项编号: " choice || return 0
-      case "$choice" in
-        1) run_method install curl ;;
-        2) run_method install npm ;;
-        3) doctor ;;
-        4) run_method update curl ;;
-        5) run_method update npm ;;
-        6) remove_info ;;
-        0) return 0 ;;
-        *) error "输入无效。"; return 1 ;;
-      esac
+      while true; do
+        show_menu
+        read -r -p "请输入选项编号: " choice || return 0
+        case "$choice" in
+          1) method="curl" ;;
+          2) method="npm" ;;
+          3) method="doctor" ;;
+          4) method="update-curl" ;;
+          5) method="update-npm" ;;
+          6) method="remove-info" ;;
+          0) return 0 ;;
+          *) error "输入无效。"; continue ;;
+        esac
+        bash "$0" "$method" || error "操作失败，请检查上方错误后重试。"
+      done
       ;;
     list)
       printf '%s\n' "curl" "npm"
