@@ -73,7 +73,7 @@ check_wireguard() {
 require_root() {
   if [[ "$EUID" -ne 0 ]]; then
     echo -e "${YLW}本操作需要 root 权限，尝试 sudo 重执行……${NC}"
-    exec sudo "$0" "$@"
+    exec sudo bash "$0" "$@"
   fi
 }
 
@@ -314,11 +314,11 @@ service_menu() {
     echo "  3) 停止"
     echo "  4) 查看服务状态"
     echo "  0) 返回上级"
-    read -rp "请选择：" c
+    read -rp "请选择：" c || return 0
     case "$c" in
-      1) require_root; svc_action start ;;
-      2) require_root; svc_action restart ;;
-      3) require_root; svc_action stop ;;
+      1) (require_root start; svc_action start) || warn "启动失败。" ;;
+      2) (require_root restart; svc_action restart) || warn "重启失败。" ;;
+      3) (require_root stop; svc_action stop) || warn "停止失败。" ;;
       4) svc_action status ;;
       0) break ;;
       *) warn "无效选择" ;;
@@ -338,13 +338,13 @@ main_menu() {
     echo "  4) 服务控制        （启动/重启/停止/状态）"
     echo "  5) 初始化配置      （init 向导，首次使用）"
     echo "  0) 退出"
-    read -rp "请选择：" c
+    read -rp "请选择：" c || return 0
     case "$c" in
-      1) show_status ;;
-      2) show_myself ;;
-      3) split_check ;;
+      1) (show_status) || warn "状态查询失败。" ;;
+      2) (show_myself) || warn "配置查询失败。" ;;
+      3) (split_check) || warn "分流检查失败。" ;;
       4) service_menu ;;
-      5) require_root; cmd_init ;;
+      5) (require_root init; cmd_init) || warn "初始化失败。" ;;
       0) echo "再见。"; exit 0 ;;
       *) warn "无效选择" ;;
     esac
@@ -355,7 +355,7 @@ main_menu() {
 # 入口：子命令 / 菜单双模式
 # ---------------------------------------------------------------------------
 case "${1:-}" in
-  init)          shift; require_root; cmd_init "$@" ;;
+  init)          shift; require_root init "$@"; cmd_init "$@" ;;
   pubkey)        check_wireguard >/dev/null 2>&1
                   pk="$(client_pubkey)"
                   if [[ -n "$pk" ]]; then
