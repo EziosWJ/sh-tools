@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# 默认模拟依赖已安装；失败用例显式要求报告缺失。
+exit "${SH_TOOLS_TEST_MISSING_PACKAGES:-0}"

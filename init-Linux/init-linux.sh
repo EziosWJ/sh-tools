@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# 进程替换输入是一次性管道；先保存完整入口，供菜单重复启动子操作。
+if [[ "$0" == /dev/fd/* || "$0" == /proc/self/fd/* ]]; then
+  menu_script="$(mktemp)"
+  trap 'rm -f -- "$menu_script"' EXIT
+  curl -fsSL "${REPO_RAW_BASE:-https://raw.githubusercontent.com/EziosWJ/sh-tools/master}/init-Linux/init-linux.sh" -o "$menu_script"
+  bash "$menu_script" "$@"
+  exit $?
+fi
+
 NVM_VERSION="v0.40.4"
 APT_AVAILABLE=0
 
@@ -361,12 +370,12 @@ require_apt() {
 run_as_root() {
   if ((EUID == 0)); then
     "$@"
-    return 0
+    return $?
   fi
 
   if command -v sudo >/dev/null 2>&1; then
     sudo "$@"
-    return 0
+    return $?
   fi
 
   error "当前用户不是 root，且未检测到 sudo，无法执行需要管理员权限的操作。"
@@ -417,7 +426,7 @@ check_system() {
 apt_update() {
   require_apt || return 1
   info "执行 apt update..."
-  run_apt update
+  run_apt update || return 1
   success "apt 软件包索引已更新。"
 }
 
@@ -454,7 +463,7 @@ install_package_group() {
     return 0
   fi
 
-  run_apt install -y "${missing[@]}"
+  run_apt install -y "${missing[@]}" || return 1
   success "$label 安装完成。"
 }
 
@@ -483,32 +492,23 @@ install_diagnose_deps() {
 }
 
 install_optional_deps() {
-  local choice
-
-  if ! confirm "是否选择安装可选依赖组？"; then
-    info "已跳过可选依赖组。"
-    return 0
-  fi
-
-  cat <<'MENU'
+  local choice group
+  while true; do
+    cat <<'MENU'
 请选择可选依赖组：
 1) 编译扩展（build-essential、pkg-config、python3-dev）
 2) 诊断与同步（lsof、dnsutils、netcat-openbsd、rsync）
-3) 两组都安装
-0) 跳过
+0) 返回上一级
 MENU
-  read -r -p "请输入选项编号: " choice || return 0
-
-  case "$choice" in
-    1) install_build_deps required ;;
-    2) install_diagnose_deps required ;;
-    3)
-      install_build_deps required
-      install_diagnose_deps required
-      ;;
-    0) info "已跳过可选依赖组。" ;;
-    *) warn "无效选项，已跳过可选依赖组。" ;;
-  esac
+    read -r -p "请输入选项编号: " choice || return 0
+    case "$choice" in
+      1) group="build" ;;
+      2) group="diagnose" ;;
+      0) return 0 ;;
+      *) warn "无效选项。"; continue ;;
+    esac
+    bash "$0" deps "$group" || error "依赖安装失败，请检查上方错误后重试。"
+  done
 }
 
 install_deps() {
@@ -539,11 +539,6 @@ install_agenttools() {
   else
     info "已跳过 Agent 可选增强工具。"
   fi
-}
-
-install_devtools_compat() {
-  warn "devtools 已更名为 agenttools，正在按兼容模式执行。"
-  install_agenttools
 }
 
 gitcfg_set_value() {
@@ -968,13 +963,13 @@ show_menu() {
 11) 查看 WSL 状态与建议
 12) 安装 uv
 13) 修复 nvm / uv 环境变量
-14) 一键安装全部
-0) 退出
+14) 安装基础开发环境（核心依赖、可选推荐依赖、nvm、Node.js LTS、uv、环境变量）
+0) 返回上一级
 MENU
 }
 
 interactive_menu() {
-  local choice
+  local choice command
 
   while true; do
     printf '\n'
@@ -982,23 +977,24 @@ interactive_menu() {
     read -r -p "请输入选项编号: " choice || return 0
 
     case "$choice" in
-      1) check_system ;;
-      2) setup_mirror ;;
-      3) install_deps ;;
-      4) install_agenttools ;;
-      5) configure_git ;;
-      6) install_nvm ;;
-      7) install_node_lts ;;
-      8) configure_node_tools ;;
-      9) install_python_tools ;;
-      10) init_ssh ;;
-      11) show_wsl_advice ;;
-      12) install_uv ;;
-      13) fix_shell_env ;;
-      14) run_all ;;
-      0) success "已退出。"; return 0 ;;
-      *) warn "无效选项，请输入 0-14。" ;;
+      1) command="check" ;;
+      2) command="mirror" ;;
+      3) command="deps" ;;
+      4) command="agenttools" ;;
+      5) command="gitcfg" ;;
+      6) command="nvm" ;;
+      7) command="node" ;;
+      8) command="nodetools" ;;
+      9) command="pytools" ;;
+      10) command="ssh-init" ;;
+      11) command="wsl" ;;
+      12) command="uv" ;;
+      13) command="env" ;;
+      14) command="all" ;;
+      0) return 0 ;;
+      *) warn "无效选项，请输入 0-14。"; continue ;;
     esac
+    bash "$0" "$command" || error "操作失败，请检查上方错误后重试。"
   done
 }
 
@@ -1013,7 +1009,6 @@ usage() {
   bash init-linux.sh deps build
   bash init-linux.sh deps diagnose
   bash init-linux.sh agenttools
-  bash init-linux.sh devtools  # 兼容别名
   bash init-linux.sh gitcfg
   bash init-linux.sh nvm
   bash init-linux.sh node
@@ -1036,7 +1031,6 @@ main() {
     mirror) setup_mirror ;;
     deps) install_deps "${2:-interactive}" ;;
     agenttools) install_agenttools ;;
-    devtools) install_devtools_compat ;;
     gitcfg) configure_git ;;
     nvm) install_nvm ;;
     node) install_node_lts ;;

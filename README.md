@@ -1,108 +1,58 @@
-# SH-TOOLS
+# SH-TOOLS v2
 
-这是我的个人 shell / agent 工具箱仓库。
+个人 Bash 工具箱：初始化开发环境、安装 AI Agent、接入项目规则、管理 tmux 会话。
 
-它主要解决三类事情：
+## 开始使用
 
-- 新 Debian / Ubuntu / WSL 环境初始化
-- 常用 AI agent 工具安装、检查、更新
-- skills / 规范文件的快速接入
-
-整个仓库优先保证两点：
-
-- 本地仓库里能直接执行
-- 没有 clone 仓库时，也能通过远程单文件入口使用
-
-## 工具列表
-
-| 工具 | 说明 |
-|------|------|
-| [init-Linux](./init-Linux/init-linux.sh) | Debian 系 Linux 开发环境初始化脚本，包含 WSL 可选增强 |
-| [add-tmux-help](./add-tmux-help/add-tmux-help.sh) | 向 shell 配置添加 tmux 快捷键帮助函数 |
-| [install-karpathy-skills](./install-karpathy-skills/install-karpathy-skills.sh) | 兼容旧入口，实际委托给 `skills/karpathy` |
-| [agents](./agents/agents.sh) | AI agent 工具安装入口，支持 Codex、Claude Code、OpenCode、Hermes、Pi Agent |
-| [skills](./skills/skills.sh) | skills 安装入口，包含项目规则模板、`karpathy` 和 `mattpocock/skills` |
-| [sh-tools](./sh-tools.sh) | 总入口脚本，交互选择并调用各工具入口，支持本地/远程双模式 |
-
-## 快速安装
-
-GitHub 入口：
+已有仓库，运行：
 
 ```bash
-# sh-tools - 总入口，交互选择工具，本地无仓库时自动走远程模式
+bash sh-tools.sh
+```
+
+没有仓库，选择一个下载来源：
+
+**GitHub**
+
+```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/sh-tools.sh)
-
-# init-Linux - Debian 系 Linux 开发环境初始化
-bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/init-Linux/init-linux.sh)
-
-# add-tmux-help - 添加 tmux 快捷键帮助函数
-bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/add-tmux-help/add-tmux-help.sh)
-
-# agents - AI agent 工具安装入口，内部再选择具体 agent 和安装方式
-bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/agents/agents.sh)
-
-# skills - skills 安装入口，内部再选择具体 provider
-bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/skills/skills.sh)
-
-# skills/agents-template - 初始化中文 AGENTS.md 和引用它的 CLAUDE.md
-bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/skills/providers/agents-template.sh)
-
-# skills/karpathy - 下载 CLAUDE.md 并创建 AGENTS.md 软链接
-bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/skills/providers/karpathy.sh)
-
-# 兼容旧入口，等价于 skills/karpathy
-bash <(curl -fsSL https://raw.githubusercontent.com/EziosWJ/sh-tools/master/install-karpathy-skills/install-karpathy-skills.sh)
 ```
 
-Gitee 入口：
-
-先说明两点：
-
-- 如果只拉单个脚本，直接使用 Gitee 完整地址即可
-- 如果要从 `sh-tools.sh` 总入口继续进入二级脚本，建议先设置 `REPO_RAW_BASE`
-- `REPO_RAW_BASE` 的作用是让后续动态拉取的二级脚本、provider、registry 继续走 Gitee，而不是回落到 GitHub
+**Gitee**
 
 ```bash
-# 让后续动态拉取继续走 Gitee
 export REPO_RAW_BASE="https://gitee.com/ezios/sh-tools/raw/master"
-
-# sh-tools - 总入口，交互选择工具，本地无仓库时自动走远程模式
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/sh-tools.sh)
-
-# init-Linux - Debian 系 Linux 开发环境初始化
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/init-Linux/init-linux.sh)
-
-# add-tmux-help - 添加 tmux 快捷键帮助函数
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/add-tmux-help/add-tmux-help.sh)
-
-# agents - AI agent 工具安装入口，内部再选择具体 agent 和安装方式
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/agents/agents.sh)
-
-# skills - skills 安装入口，内部再选择具体 provider
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/skills/skills.sh)
-
-# skills/agents-template - 初始化中文 AGENTS.md 和引用它的 CLAUDE.md
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/skills/providers/agents-template.sh)
-
-# skills/karpathy - 下载 CLAUDE.md 并创建 AGENTS.md 软链接
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/skills/providers/karpathy.sh)
-
-# 兼容旧入口，等价于 skills/karpathy
-bash <(curl -fsSL https://gitee.com/ezios/sh-tools/raw/master/install-karpathy-skills/install-karpathy-skills.sh)
+bash <(curl -fsSL "$REPO_RAW_BASE/sh-tools.sh")
 ```
 
-## 推荐使用顺序
+远程命令读取 `master` 分支；本地开发中的 v2 改动需发布到该分支后才生效。`REPO_RAW_BASE` 控制后续模块的下载来源。交互执行使用 `bash <(curl …)`，不要用占用标准输入的 `curl … | bash`。
 
-1. 新 Debian / Ubuntu / WSL 环境先运行 `init-Linux`
-2. 按需进入 `agents` 安装常用 agent 工具
-3. 按需进入 `skills` 安装技能或规范文件
+## 选择工具
 
-## PLAN
+| 入口 | 用途与详细说明 |
+| --- | --- |
+| `init-Linux` | [Debian / Ubuntu / WSL 基础开发环境](init-Linux/README.md) |
+| `agents` | [Agent 安装、更新、检查及 Claude Code profile](agents/README.md) |
+| `skills` | [项目规则模板与 skills 安装](skills/README.md) |
+| `add-tmux-help` | [tmux 会话菜单与快捷键帮助](add-tmux-help/README.md) |
+| `mihomo` | [Mihomo TUN、Docker 流量代理与 systemd 管理](mihomo/README.md) |
 
-- [x] init-Linux
-- [x] add-tmux-help
-- [x] install-karpathy-skills
-- [x] agents
-- [x] skills
-- [x] sh-tools
-- [ ] 待续
+操作结束后留在当前菜单；输入 `0` 返回上一级，总菜单输入 `0` 退出。操作失败会显示错误并回到当前菜单。直接传入子命令时，执行一次后退出并保留退出状态。
+
+新机器先安装基础开发环境，再按需安装 Agent 和项目规则。也可以直接执行：
+
+```bash
+bash sh-tools.sh init-Linux all       # 安装基础开发环境
+bash sh-tools.sh agents status       # 查看 Agent 状态
+bash sh-tools.sh skills agents-template /path/to/project
+```
+
+[WireGuard 管理工具](wireguard/README.md) 独立使用，需下载到本机运行，未接入总菜单。
+
+## 版本与验证
+
+`v1.0` 标签保存精简前版本。v2 不保留旧入口兼容性：`install-karpathy-skills` 改用 `skills → karpathy`，`init-Linux devtools` 改用 `agenttools`。tmux 改用独立命令，升级说明见模块文档。
+
+```bash
+bash tests/smoke.sh
+```

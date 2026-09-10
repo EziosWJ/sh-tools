@@ -78,8 +78,14 @@ download_remote_file() {
   local remote_path="$1"
   local target_file="$2"
 
-  mkdir -p "$(dirname "$target_file")"
-  curl -fsSL -o "$target_file" "$REPO_RAW_BASE/agents/$remote_path"
+  mkdir -p "$(dirname "$target_file")" || return 1
+  local temporary
+  temporary="$(mktemp "${target_file}.XXXXXX")" || return 1
+  if ! curl -fsSL -o "$temporary" "$REPO_RAW_BASE/agents/$remote_path"; then
+    rm -f -- "$temporary"
+    return 1
+  fi
+  mv -- "$temporary" "$target_file"
 }
 
 provider_script_path() {
@@ -93,10 +99,7 @@ provider_script_path() {
   fi
 
   local runtime_path="$RUNTIME_DIR/$entry"
-  if [[ ! -f "$runtime_path" ]]; then
-    download_remote_file "$entry" "$runtime_path"
-    chmod +x "$runtime_path"
-  fi
+  download_remote_file "$entry" "$runtime_path" || return 1
   printf '%s\n' "$runtime_path"
 }
 
@@ -106,7 +109,7 @@ run_provider() {
   local script_path
 
   script_path="$(provider_script_path "$provider")" || {
-    printf '未知 agent provider：%s\n\n' "$provider" >&2
+    printf '无法加载 provider（名称无效或下载失败）：%s\n\n' "$provider" >&2
     usage
     return 1
   }
@@ -148,7 +151,7 @@ show_menu() {
   printf '%s) %s\n' "$index" "status - 查看全部 agent 安装摘要"
   index=$((index + 1))
   printf '%s) %s\n' "$index" "doctor-all - 逐个执行 doctor"
-  echo "0) 退出"
+  echo "0) 返回上一级"
 }
 
 pick_provider_by_index() {
@@ -168,37 +171,27 @@ pick_provider_by_index() {
 }
 
 run_menu() {
-  local selected
-  local provider
+  local selected provider
   local provider_count
-
   provider_count="$(provider_names | wc -l | tr -d ' ')"
-  show_menu
-  echo ""
-  read -r -p "请输入选项编号: " selected || return 0
-
-  if [[ "$selected" == "0" ]]; then
-    return 0
-  fi
-  if [[ ! "$selected" =~ ^[0-9]+$ ]]; then
-    echo "输入无效。"
-    return 1
-  fi
-  if [[ "$selected" == "$((provider_count + 1))" ]]; then
-    show_status
-    return 0
-  fi
-  if [[ "$selected" == "$((provider_count + 2))" ]]; then
-    doctor_all
-    return 0
-  fi
-
-  provider="$(pick_provider_by_index "$selected")" || {
-    echo "输入无效。"
-    return 1
-  }
-
-  run_provider "$provider"
+  while true; do
+    show_menu
+    read -r -p "请输入选项编号: " selected || return 0
+    case "$selected" in
+      0) return 0 ;;
+      "$((provider_count + 1))")
+        show_status || printf '状态查询失败。\n' >&2
+        continue ;;
+      "$((provider_count + 2))")
+        doctor_all || printf '检查失败。\n' >&2
+        continue ;;
+    esac
+    provider="$(pick_provider_by_index "$selected")" || {
+      printf '输入无效。\n' >&2
+      continue
+    }
+    run_provider "$provider" || printf '操作失败，请检查上方错误后重试。\n' >&2
+  done
 }
 
 provider_binary_name() {
@@ -258,6 +251,7 @@ show_status() {
 doctor_all() {
   local provider
   local first=1
+  local status=0
 
   while IFS= read -r provider; do
     if ((first == 0)); then
@@ -265,8 +259,9 @@ doctor_all() {
     fi
     first=0
     printf '=== %s ===\n' "$provider"
-    run_provider "$provider" doctor
+    run_provider "$provider" doctor || status=1
   done < <(provider_names)
+  return "$status"
 }
 
 main() {

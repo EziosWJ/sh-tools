@@ -32,12 +32,11 @@ bash init-linux.sh
 
 ```bash
 bash init-linux.sh check    # 查看系统与工具状态摘要
-bash init-linux.sh all      # 安装核心环境与推荐依赖
+bash init-linux.sh all      # 安装基础开发环境
 bash init-linux.sh deps     # 安装核心/推荐依赖，可选择可选组
 bash init-linux.sh deps build    # 仅安装编译扩展依赖
 bash init-linux.sh deps diagnose # 仅安装诊断与同步依赖
 bash init-linux.sh agenttools # 安装 Agent 工具包
-bash init-linux.sh devtools # 兼容别名，会提示改用 agenttools
 bash init-linux.sh gitcfg   # 初始化 Git 全局配置
 bash init-linux.sh nvm      # 仅安装 nvm
 bash init-linux.sh node     # 仅安装 Node.js LTS
@@ -92,9 +91,13 @@ WSL 不是单独产品线，而是上述 Debian 系环境上的可选增强场�
 - 核心工具：`ripgrep`、`jq`、`tmux`
 - 可选增强：`fzf`、`tree`、`zip`
 
-核心工具与可选增强会分别确认；已安装的包会直接跳过。旧命令 `devtools` 仍可使用，但会提示改用 `agenttools`。
+核心工具与可选增强会分别确认；已安装的包会直接跳过。v2 使用 `agenttools`，已移除旧的 `devtools` 别名。
 
 ## deps 会安装什么
+
+`all`（菜单中的“安装基础开发环境”）包含：系统检查、apt 更新、核心依赖、可选的推荐依赖、nvm、Node.js LTS、uv 和 nvm/uv 环境变量配置。它不包含改源、Agent 工具包、Git 配置、pnpm、Python 开发工具、SSH key 或可选依赖组；这些可以从菜单单独执行。环境变量只写入已存在的 `.bashrc`，不会自动创建或 source。
+
+每次操作完成后留在当前菜单，输入 `0` 返回上一级；单独启动时退出。失败时显示错误，允许重新选择操作。
 
 依赖按三层管理，重复执行时只安装缺失包：
 

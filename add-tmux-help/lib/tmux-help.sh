@@ -137,14 +137,7 @@ show_category_help() {
   while true; do
     local key="${category}:${i}"
     # 检查 key 是否存在（区分空值和不存在）
-    local has_key=false
-    if [[ -n "${ZSH_VERSION:-}" ]]; then
-      [[ -n "${(k)KEYBINDINGS[(Ie)$key]:-}" ]] && has_key=true
-    else
-      [[ -v "KEYBINDINGS[$key]" ]] && has_key=true
-    fi
-
-    if $has_key; then
+    if [[ -v "KEYBINDINGS[$key]" ]]; then
       local val="${KEYBINDINGS[$key]}"
       if [[ -n "$val" ]]; then
         echo "  $val"
@@ -172,21 +165,18 @@ show_all_help() {
 
 # 交互模式
 interactive_mode() {
+  local selected category
   local categories=("session" "window" "pane" "copy" "layout" "resize" "all")
-  local category_list=()
-
-  for cat in "${categories[@]}"; do
-    category_list+=("$cat - ${HELP_DATA[$cat]}")
+  local options=()
+  for category in "${categories[@]}"; do
+    options+=("$category - ${HELP_DATA[$category]}")
   done
-
-  local selected
-  selected=$(select_option "选择帮助分类: " "${category_list[@]}")
-
-  if [[ -n "$selected" ]]; then
-    local category
-    category=$(echo "$selected" | cut -d' ' -f1)
-    show_category_help "$category"
-  fi
+  while true; do
+    selected="$(select_option "选择帮助分类：" "${options[@]}")" || return 1
+    [[ -n "$selected" ]] || return 0
+    category="${selected%% *}"
+    show_category_help "$category" || error "显示帮助失败。"
+  done
 }
 
 # 搜索快捷键
@@ -203,12 +193,7 @@ search_keybindings() {
 
   local found=0
   # 使用兼容的方式遍历关联数组
-  local keys
-  if [[ -n "${ZSH_VERSION:-}" ]]; then
-    keys=(${(k)KEYBINDINGS})
-  else
-    keys=("${!KEYBINDINGS[@]}")
-  fi
+  local keys=("${!KEYBINDINGS[@]}")
 
   for key in "${keys[@]}"; do
     local binding="${KEYBINDINGS[$key]}"
@@ -257,9 +242,6 @@ EOF
 
 # 主函数
 tmux_help_main() {
-  # 加载配置
-  load_config
-
   local category=""
   local interactive=false
   local search_keyword=""
